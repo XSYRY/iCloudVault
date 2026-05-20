@@ -21,6 +21,13 @@ body {
   margin-left:auto; font-size:11px; background:#bb86fc22; color:#bb86fc;
   padding:4px 10px; border-radius:12px;
 }
+.header-actions { display:flex; gap:6px; margin-left:6px; }
+.header-btn {
+  background:#1e1e2e; border:1px solid #333; color:#aaa; font-size:11px;
+  padding:5px 10px; border-radius:14px; cursor:pointer; display:flex; align-items:center; gap:4px;
+  transition:all 0.2s;
+}
+.header-btn:active { background:#bb86fc33; color:#bb86fc; }
 
 /* ── Tabs ── */
 .tabs {
@@ -73,8 +80,15 @@ body {
   position:absolute; bottom:4px; right:4px; font-size:10px;
   background:#000000aa; color:#ccc; padding:2px 6px; border-radius:8px;
 }
+.photo-card .ai-dot {
+  position:absolute; top:4px; left:4px; width:8px; height:8px;
+  border-radius:50%; background:#bb86fc; display:none;
+  box-shadow:0 0 6px #bb86fc;
+}
+.photo-card.ai-tagged .ai-dot { display:block; }
 
 @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 
 /* ── Lightbox ── */
 .lightbox {
@@ -86,9 +100,7 @@ body {
   width:90vw; height:70vh; display:flex; align-items:center; justify-content:center;
   font-size:120px; border-radius:8px;
 }
-.lightbox .lb-info {
-  margin-top:16px; text-align:center; max-width:80vw;
-}
+.lightbox .lb-info { margin-top:16px; text-align:center; max-width:80vw; }
 .lightbox .lb-tags { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin-top:8px; }
 .lightbox .lb-tag {
   padding:4px 12px; border-radius:12px; font-size:12px; background:#bb86fc33; color:#bb86fc;
@@ -98,9 +110,7 @@ body {
   position:absolute; top:16px; right:20px; background:none; border:none;
   color:#fff; font-size:32px; cursor:pointer; width:44px; height:44px;
 }
-.lightbox .lb-actions {
-  display:flex; gap:20px; margin-top:16px;
-}
+.lightbox .lb-actions { display:flex; gap:20px; margin-top:16px; }
 .lightbox .lb-actions button {
   background:#1e1e2e; border:1px solid #333; color:#fff; border-radius:20px;
   padding:10px 20px; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:6px;
@@ -178,6 +188,161 @@ body {
 .cat-group .cat-name { font-size:15px; font-weight:500; }
 .cat-group .cat-count { font-size:12px; color:#888; }
 
+/* ── Map View ── */
+.map-view {
+  display:none; flex:1; overflow:hidden; position:relative; background:#0a0a14;
+}
+.map-view.active { display:block; }
+.map-canvas {
+  width:100%; height:100%; position:relative;
+  background:radial-gradient(ellipse at 55% 45%, #1a1a3a 0%, #0a0a14 100%);
+  overflow:hidden;
+}
+.map-bg-dots {
+  position:absolute; inset:0;
+  background-image: radial-gradient(#222 1px, transparent 1px);
+  background-size:28px 28px;
+}
+/* Stylized China outline — simplified paths */
+.map-outline {
+  position:absolute; inset:0; opacity:0.15;
+  border:1px solid #334; border-radius:10% 40% 30% 20% / 30% 20% 40% 30%;
+  transform:rotate(-5deg) scale(0.7,0.8);
+  left:10%; top:5%; width:75%; height:85%;
+}
+.map-marker {
+  position:absolute; width:28px; height:28px; border-radius:50%;
+  background:#bb86fc; display:flex; align-items:center; justify-content:center;
+  font-size:14px; cursor:pointer; transition:transform 0.2s; z-index:2;
+  box-shadow:0 0 12px rgba(187,134,252,0.6);
+  transform:translate(-50%,-50%);
+}
+.map-marker:active { transform:translate(-50%,-50%) scale(1.3); z-index:5; }
+.map-marker .marker-count {
+  position:absolute; top:-8px; right:-8px; background:#ff6b6b; color:#fff;
+  font-size:9px; width:18px; height:18px; border-radius:50%; display:flex;
+  align-items:center; justify-content:center; font-weight:bold;
+}
+.map-label {
+  position:absolute; color:#ccc; font-size:11px; transform:translate(-50%,18px);
+  pointer-events:none; white-space:nowrap; text-shadow:0 1px 4px #000;
+}
+.map-legend {
+  position:absolute; bottom:12px; left:12px; background:#1a1a2eee; border-radius:10px;
+  padding:10px 14px; font-size:11px; color:#888; display:flex; gap:14px;
+}
+.map-legend span { display:flex; align-items:center; gap:4px; }
+.map-legend .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+.map-legend .dot.purple { background:#bb86fc; }
+.map-legend .dot.red { background:#ff6b6b; }
+
+/* ── AI Scan Overlay ── */
+.ai-overlay {
+  display:none; position:fixed; inset:0; background:#0f0f0ff8; z-index:150;
+  flex-direction:column; align-items:center; justify-content:center;
+}
+.ai-overlay.open { display:flex; }
+.ai-progress-ring {
+  width:140px; height:140px; position:relative; margin-bottom:24px;
+}
+.ai-ring-bg {
+  width:100%; height:100%; border-radius:50%;
+  border:3px solid #222;
+  position:absolute;
+}
+.ai-ring-fill {
+  width:100%; height:100%; border-radius:50%;
+  border:3px solid #bb86fc;
+  border-top-color:transparent;
+  position:absolute;
+  animation: spin 1.2s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.ai-ring-text {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:28px; font-weight:600; color:#bb86fc;
+}
+.ai-status { font-size:16px; color:#aaa; margin-bottom:6px; text-align:center; min-height:24px; }
+.ai-substatus { font-size:12px; color:#666; text-align:center; }
+.ai-log {
+  margin-top:20px; max-height:180px; overflow-y:auto; width:80%; max-width:360px;
+  font-family:'Consolas','Courier New',monospace; font-size:11px; color:#555;
+}
+.ai-log .log-line { padding:3px 0; border-bottom:1px solid #111; animation: fadeIn 0.2s ease; }
+.ai-log .log-line.tag { color:#bb86fc; }
+.ai-log .log-line.done { color:#4caf50; }
+.ai-close-btn {
+  margin-top:24px; background:#1e1e2e; border:1px solid #333; color:#fff;
+  padding:10px 28px; border-radius:20px; cursor:pointer; font-size:14px; display:none;
+}
+
+/* ── Dedup Overlay ── */
+.dedup-overlay {
+  display:none; position:fixed; inset:0; background:#0f0f0ff8; z-index:150;
+  flex-direction:column; align-items:center;
+}
+.dedup-overlay.open { display:flex; }
+.dedup-header {
+  padding:20px 16px; text-align:center; width:100%;
+}
+.dedup-header h3 { font-size:18px; margin-bottom:4px; }
+.dedup-header p { font-size:12px; color:#888; }
+.dedup-progress-bar {
+  width:80%; max-width:360px; height:6px; background:#1e1e2e; border-radius:3px;
+  margin:12px 0;
+}
+.dedup-progress-fill {
+  height:100%; background:linear-gradient(90deg,#bb86fc,#ff6b6b); border-radius:3px;
+  width:0%; transition:width 0.3s;
+}
+.dedup-phase { font-size:13px; color:#aaa; margin-bottom:4px; }
+.dedup-scan-box {
+  width:80%; max-width:360px; height:120px; background:#1a1a2e; border-radius:12px;
+  overflow:hidden; position:relative; margin:8px 0;
+}
+.dedup-scan-line {
+  position:absolute; left:0; right:0; height:2px; background:#bb86fc88;
+  top:-2px; animation: scanDown 2s ease-in-out infinite;
+  box-shadow:0 0 20px #bb86fc44;
+}
+@keyframes scanDown {
+  0% { top:-2px; } 50% { top:100%; } 100% { top:-2px; }
+}
+.dedup-scan-grid {
+  display:grid; grid-template-columns:repeat(6,1fr); gap:2px; padding:8px; height:100%;
+}
+.dedup-scan-grid .mini {
+  background:#2a2a3a; border-radius:2px; display:flex; align-items:center;
+  justify-content:center; font-size:18px; opacity:0.5;
+}
+.dedup-results {
+  flex:1; overflow-y:auto; width:90%; max-width:400px; padding:12px 0; display:none;
+}
+.dedup-result-card {
+  background:#1a1a2e; border-radius:12px; padding:14px; margin-bottom:8px;
+  display:flex; gap:12px; align-items:center;
+}
+.dedup-result-card .pair {
+  display:flex; gap:8px; align-items:center; flex:1;
+}
+.dedup-result-card .dup-img {
+  width:56px; height:56px; border-radius:8px; display:flex; align-items:center;
+  justify-content:center; font-size:28px;
+}
+.dedup-result-card .dup-info { flex:1; font-size:12px; }
+.dedup-result-card .dup-sim {
+  background:#ff6b6b22; color:#ff6b6b; font-size:11px; padding:4px 8px;
+  border-radius:10px;
+}
+.dedup-close-btn {
+  background:#1e1e2e; border:1px solid #333; color:#fff;
+  padding:10px 28px; border-radius:20px; cursor:pointer; font-size:14px; margin:16px 0 32px; display:none;
+}
+.dedup-summary {
+  font-size:14px; text-align:center; padding:8px; display:none;
+}
+.dedup-summary .found { color:#ff6b6b; font-size:24px; font-weight:600; }
+
 /* ── Empty State ── */
 .empty-state {
   display:none; flex-direction:column; align-items:center; justify-content:center;
@@ -204,6 +369,10 @@ body {
     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#bb86fc" stroke-width="1.5" fill="none"/>
   </svg>
   <h1>私密相册</h1>
+  <div class="header-actions">
+    <button class="header-btn" id="btnAiTag" title="AI 智能分类">🤖 AI分类</button>
+    <button class="header-btn" id="btnDedup" title="去重扫描">🔍 去重</button>
+  </div>
   <span class="badge">iCloud Drive</span>
 </div>
 
@@ -220,9 +389,9 @@ body {
 
 <!-- Stats -->
 <div class="stats" id="stats">
-  <span class="count" id="visibleCount">2,249</span><span>张</span>
+  <span class="count" id="visibleCount">36</span><span>张</span>
   <span>·</span><span>2024.10 – 2026.05</span>
-  <span style="margin-left:auto;color:#bb86fc;">AI 已分类</span>
+  <span style="margin-left:auto;color:#bb86fc;"><span id="aiTaggedCount">0</span> 张 AI 已分类</span>
 </div>
 
 <!-- Search -->
@@ -240,6 +409,19 @@ body {
 <!-- Category View -->
 <div class="category-view" id="categoryView"></div>
 
+<!-- Map View -->
+<div class="map-view" id="mapView">
+  <div class="map-canvas" id="mapCanvas">
+    <div class="map-bg-dots"></div>
+    <div class="map-outline"></div>
+    <!-- Markers injected by JS -->
+  </div>
+  <div class="map-legend">
+    <span><span class="dot purple"></span> 照片地点</span>
+    <span><span class="dot red"></span> 重复照片</span>
+  </div>
+</div>
+
 <!-- Empty State -->
 <div class="empty-state" id="emptyState">
   <span class="empty-icon">🔍</span>
@@ -256,6 +438,38 @@ body {
     <button id="lbShare">📤 分享</button>
     <button id="lbDelete">🗑 删除</button>
   </div>
+</div>
+
+<!-- AI Tagging Overlay -->
+<div class="ai-overlay" id="aiOverlay">
+  <div class="ai-progress-ring">
+    <div class="ai-ring-bg"></div>
+    <div class="ai-ring-fill"></div>
+    <div class="ai-ring-text" id="aiPercent">0%</div>
+  </div>
+  <div class="ai-status" id="aiStatus">准备启动 MiMo-V2.5 多模态引擎...</div>
+  <div class="ai-substatus" id="aiSubstatus"></div>
+  <div class="ai-log" id="aiLog"></div>
+  <button class="ai-close-btn" id="aiCloseBtn">完成 ✓</button>
+</div>
+
+<!-- Dedup Overlay -->
+<div class="dedup-overlay" id="dedupOverlay">
+  <div class="dedup-header">
+    <h3>🔍 重复照片检测</h3>
+    <p>感知哈希 + 特征向量相似度</p>
+  </div>
+  <div class="dedup-phase" id="dedupPhase">阶段 1/3: 计算 pHash 指纹...</div>
+  <div class="dedup-progress-bar">
+    <div class="dedup-progress-fill" id="dedupProgressFill"></div>
+  </div>
+  <div class="dedup-scan-box">
+    <div class="dedup-scan-line"></div>
+    <div class="dedup-scan-grid" id="dedupScanGrid"></div>
+  </div>
+  <div class="dedup-summary" id="dedupSummary"></div>
+  <div class="dedup-results" id="dedupResults"></div>
+  <button class="dedup-close-btn" id="dedupCloseBtn">关闭</button>
 </div>
 
 <!-- FAB -->
@@ -278,17 +492,17 @@ body {
     <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
     相册
   </button>
-  <button class="nav-item" data-view="category">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-    分类
-  </button>
-  <button class="nav-item" data-view="search">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    搜索
-  </button>
   <button class="nav-item" data-view="timeline">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     时间线
+  </button>
+  <button class="nav-item" data-view="map">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    地图
+  </button>
+  <button class="nav-item" data-view="category">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    分类
   </button>
 </div>
 
@@ -296,21 +510,36 @@ body {
 <div class="toast" id="toast"></div>
 
 <script>
-// ── Mock Data ──
-const emojis = ['🌅','🏔️','🌊','🐱','🍜','📱','🎨','🌸','🏠','✈️','🎂','⚽','🎭','🌵','🎸','🍣','🐕','📚','🚗','🌈','☕','🏖️','🌻','🐦','🍕','🖼️','🎮','🎪','🌉','🏯','🍰','🐠','🎄','🏜️','🦋','🎵','🍷','🚲','🌙','🏕️'];
+// ═══════════════════════════════════════
+// Mock Data
+// ═══════════════════════════════════════
+const emojis = ['🌅','🏔️','🌊','🐱','🍜','📱','🎨','🌸','🏠','✈️','🎂','⚽','🎭','🌵','🎸','🍣','🐕','📚','🚗','🌈','☕','🏖️','🌻','🐦','🍕','🖼️','🎮','🎪','🌉','🏯','🍰','🐠','🎄','🏜️','🦋','🎵'];
 const colors = ['#2a2a3a','#2d2a3a','#2a2d3a','#2a3a2d','#3a2a2a','#2a3a3a','#3a2a3a','#3a3a2a'];
 const categories = ['portrait','landscape','document','pet','food','portrait','landscape','food','pet','landscape','food','other','portrait','landscape','food','other','pet','document','other','pet'];
 
-// Build photo data
+const locations = [
+  { name:'杭州·西湖', x:72, y:55 },
+  { name:'北京·故宫', x:67, y:28 },
+  { name:'上海·外滩', x:76, y:52 },
+  { name:'成都·宽窄巷子', x:38, y:52 },
+  { name:'大理·洱海', x:30, y:68 },
+  { name:'三亚·海滩', x:32, y:88 },
+  { name:'西安·城墙', x:52, y:38 },
+  { name:'拉萨·布达拉宫', x:10, y:50 },
+  { name:'桂林·漓江', x:48, y:74 },
+  { name:'厦门·鼓浪屿', x:64, y:72 },
+];
+
 let photos = [];
-const totalPhotos = 36; // Show 36 for a nice grid
+const totalPhotos = 36;
 
 for (let i = 0; i < totalPhotos; i++) {
   const cat = categories[i % categories.length];
+  const loc = locations[i % locations.length];
   const month = 10 + Math.floor(i / 4);
   const day = String((i % 28) + 1).padStart(2,'0');
   const year = month > 12 ? '2026' : (month < 10 ? '2024' : '2025');
-  const m = String(month > 12 ? month - 12 : (month < 10 ? month : month)).padStart(2,'0');
+  const m = String(month > 12 ? month - 12 : month).padStart(2,'0');
   photos.push({
     id: i,
     emoji: emojis[i % emojis.length],
@@ -319,9 +548,15 @@ for (let i = 0; i < totalPhotos; i++) {
     date: `${year}-${m}-${day}`,
     time: `${String(8 + i % 14).padStart(2,'0')}:${String((i * 7) % 60).padStart(2,'0')}`,
     tags: getTags(cat),
+    aiTags: null, // filled after AI scan
     filename: `IMG_${String(4528 + i).padStart(4,'0')}.HEIC`,
-    size: `${(2.3 + i * 0.7 % 8).toFixed(1)} MB`,
-    location: ['杭州西湖','北京故宫','上海外滩','成都宽窄巷子','大理洱海','三亚海滩'][i % 6]
+    size: `${(2.3 + (i * 0.7) % 8).toFixed(1)} MB`,
+    location: loc.name,
+    locX: loc.x,
+    locY: loc.y,
+    phash: null, // filled during dedup
+    isDuplicate: false,
+    duplicateOf: null
   });
 }
 
@@ -337,17 +572,25 @@ function getTags(cat) {
   return map[cat] || ['未分类'];
 }
 
-// ── State ──
+// ═══════════════════════════════════════
+// State
+// ═══════════════════════════════════════
 let activeTab = 'all';
 let activeView = 'grid';
 let searchQuery = '';
+let aiTaggedCount = 0;
 
-// ── DOM refs ──
+// ═══════════════════════════════════════
+// DOM refs
+// ═══════════════════════════════════════
 const grid = document.getElementById('grid');
 const timelineView = document.getElementById('timelineView');
 const categoryView = document.getElementById('categoryView');
+const mapView = document.getElementById('mapView');
+const mapCanvas = document.getElementById('mapCanvas');
 const emptyState = document.getElementById('emptyState');
 const visibleCount = document.getElementById('visibleCount');
+const aiTaggedCountEl = document.getElementById('aiTaggedCount');
 const searchInput = document.getElementById('search');
 const searchClear = document.getElementById('searchClear');
 const lightbox = document.getElementById('lightbox');
@@ -356,14 +599,19 @@ const lbDate = document.getElementById('lbDate');
 const lbTags = document.getElementById('lbTags');
 const toast = document.getElementById('toast');
 const importModal = document.getElementById('importModal');
+const aiOverlay = document.getElementById('aiOverlay');
+const dedupOverlay = document.getElementById('dedupOverlay');
 
-// ── Filter ──
+// ═══════════════════════════════════════
+// Filter
+// ═══════════════════════════════════════
 function filterPhotos() {
   return photos.filter(p => {
     if (activeTab !== 'all' && p.category !== activeTab) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      const matchTags = p.tags.some(t => t.includes(q));
+      const allTags = [...p.tags, ...(p.aiTags || [])];
+      const matchTags = allTags.some(t => t.toLowerCase().includes(q));
       const matchLocation = p.location.toLowerCase().includes(q);
       const matchDate = p.date.includes(q);
       const matchFile = p.filename.toLowerCase().includes(q);
@@ -373,10 +621,13 @@ function filterPhotos() {
   });
 }
 
-// ── Render Grid ──
+// ═══════════════════════════════════════
+// Render Grid
+// ═══════════════════════════════════════
 function renderGrid() {
   const filtered = filterPhotos();
   visibleCount.textContent = filtered.length.toLocaleString();
+  aiTaggedCountEl.textContent = aiTaggedCount;
   grid.innerHTML = '';
   emptyState.style.display = 'none';
 
@@ -387,17 +638,24 @@ function renderGrid() {
     grid.style.display = 'grid';
     filtered.forEach((p, idx) => {
       const card = document.createElement('div');
-      card.className = 'photo-card';
+      card.className = 'photo-card' + (p.aiTags ? ' ai-tagged' : '');
+      if (p.isDuplicate) card.style.border = '2px solid #ff6b6b';
       card.style.background = p.color;
       card.style.animationDelay = `${idx * 0.02}s`;
-      card.innerHTML = `<span class="emoji">${p.emoji}</span><span class="tag-badge">${p.tags[0]}</span>`;
+      card.innerHTML = `
+        <div class="ai-dot"></div>
+        <span class="emoji">${p.emoji}</span>
+        <span class="tag-badge">${p.aiTags ? p.aiTags[0] : p.tags[0]}</span>
+      `;
       card.addEventListener('click', () => openLightbox(p));
       grid.appendChild(card);
     });
   }
 }
 
-// ── Render Timeline ──
+// ═══════════════════════════════════════
+// Render Timeline
+// ═══════════════════════════════════════
 function renderTimeline() {
   const filtered = filterPhotos();
   const grouped = {};
@@ -418,9 +676,10 @@ function renderTimeline() {
     const row = group.querySelector('.timeline-row');
     grouped[month].forEach(p => {
       const card = document.createElement('div');
-      card.className = 'photo-card';
+      card.className = 'photo-card' + (p.aiTags ? ' ai-tagged' : '');
+      if (p.isDuplicate) card.style.border = '2px solid #ff6b6b';
       card.style.background = p.color;
-      card.innerHTML = `<span class="emoji">${p.emoji}</span>`;
+      card.innerHTML = `<div class="ai-dot"></div><span class="emoji">${p.emoji}</span>`;
       card.addEventListener('click', () => openLightbox(p));
       row.appendChild(card);
     });
@@ -428,7 +687,9 @@ function renderTimeline() {
   });
 }
 
-// ── Render Category View ──
+// ═══════════════════════════════════════
+// Render Category View
+// ═══════════════════════════════════════
 function renderCategoryView() {
   const counts = {};
   photos.forEach(p => { counts[p.category] = (counts[p.category] || 0) + 1; });
@@ -445,11 +706,15 @@ function renderCategoryView() {
   categoryView.innerHTML = '';
   Object.entries(catMeta).forEach(([key, meta]) => {
     const count = key === 'all' ? photos.length : (counts[key] || 0);
+    const aiCount = photos.filter(p => p.category === key && p.aiTags).length;
     const div = document.createElement('div');
     div.className = 'cat-group';
     div.innerHTML = `
       <span class="cat-icon">${meta.icon}</span>
-      <div class="cat-info"><div class="cat-name">${meta.name}</div><div class="cat-count">${count} 张</div></div>
+      <div class="cat-info">
+        <div class="cat-name">${meta.name}</div>
+        <div class="cat-count">${count} 张${aiCount > 0 ? ` · ${aiCount} 张 AI 已分类` : ''}</div>
+      </div>
       <span style="color:#555;">›</span>
     `;
     div.addEventListener('click', () => {
@@ -461,33 +726,83 @@ function renderCategoryView() {
   });
 }
 
-// ── View Switching ──
+// ═══════════════════════════════════════
+// Render Map
+// ═══════════════════════════════════════
+function renderMap() {
+  // Group photos by location
+  const byLoc = {};
+  photos.forEach(p => {
+    const key = p.location;
+    if (!byLoc[key]) byLoc[key] = { photos:[], locX:p.locX, locY:p.locY };
+    byLoc[key].photos.push(p);
+  });
+
+  // Remove old markers (keep bg-dots, outline)
+  mapCanvas.querySelectorAll('.map-marker,.map-label').forEach(el => el.remove());
+
+  Object.entries(byLoc).forEach(([name, data]) => {
+    const marker = document.createElement('div');
+    marker.className = 'map-marker';
+    marker.style.left = data.locX + '%';
+    marker.style.top = data.locY + '%';
+    marker.innerHTML = data.photos[0].emoji;
+    if (data.photos.length > 1) {
+      marker.innerHTML += `<span class="marker-count">${data.photos.length}</span>`;
+    }
+    marker.title = `${name} (${data.photos.length}张)`;
+    marker.addEventListener('click', () => {
+      // Filter to show photos from this location
+      searchInput.value = name.split('·')[1] || name.split('·')[0];
+      searchQuery = searchInput.value.trim();
+      searchClear.style.display = searchQuery ? 'block' : 'none';
+      switchView('grid');
+      renderGrid();
+      showToast(`📍 ${name} — ${data.photos.length} 张照片`);
+    });
+    mapCanvas.appendChild(marker);
+
+    const label = document.createElement('div');
+    label.className = 'map-label';
+    label.style.left = data.locX + '%';
+    label.style.top = data.locY + '%';
+    label.textContent = name.split('·')[1] || name;
+    mapCanvas.appendChild(label);
+  });
+}
+
+// ═══════════════════════════════════════
+// View Switching
+// ═══════════════════════════════════════
 function switchView(view) {
   activeView = view;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
 
   grid.style.display = view === 'grid' ? 'grid' : 'none';
   timelineView.classList.toggle('active', view === 'timeline');
+  mapView.classList.toggle('active', view === 'map');
   categoryView.classList.toggle('active', view === 'category');
+  emptyState.style.display = 'none';
 
   if (view === 'grid') renderGrid();
   else if (view === 'timeline') renderTimeline();
+  else if (view === 'map') renderMap();
   else if (view === 'category') renderCategoryView();
-
-  // Focus search if search nav tapped
-  if (view === 'search') {
-    searchInput.focus();
-    switchView('grid'); // stay in grid for search
-  }
 }
 
-// ── Lightbox ──
+// ═══════════════════════════════════════
+// Lightbox
+// ═══════════════════════════════════════
 function openLightbox(photo) {
   lbImg.textContent = photo.emoji;
   lbImg.style.background = photo.color;
   const d = new Date(photo.date + 'T' + photo.time);
+  const allTags = [...photo.tags, ...(photo.aiTags || [])];
   lbDate.textContent = `${d.toLocaleDateString('zh-CN', {year:'numeric',month:'long',day:'numeric',weekday:'short'})} ${photo.time} · ${photo.size} · ${photo.location}`;
-  lbTags.innerHTML = photo.tags.map(t => `<span class="lb-tag">${t}</span>`).join('');
+  if (photo.isDuplicate) {
+    lbDate.textContent += ' · ⚠️ 疑似重复';
+  }
+  lbTags.innerHTML = allTags.map(t => `<span class="lb-tag">${t}</span>`).join('');
   lightbox.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -496,7 +811,6 @@ function closeLightbox() {
   lightbox.classList.remove('open');
   document.body.style.overflow = '';
 }
-
 document.getElementById('lbClose').addEventListener('click', closeLightbox);
 lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
 document.getElementById('lbDelete').addEventListener('click', () => {
@@ -504,21 +818,26 @@ document.getElementById('lbDelete').addEventListener('click', () => {
   closeLightbox();
 });
 
-// ── Search ──
+// ═══════════════════════════════════════
+// Search
+// ═══════════════════════════════════════
 searchInput.addEventListener('input', () => {
   searchQuery = searchInput.value.trim();
   searchClear.style.display = searchQuery ? 'block' : 'none';
-  renderGrid();
+  if (activeView === 'grid') renderGrid();
+  else if (activeView === 'timeline') renderTimeline();
 });
-
 searchClear.addEventListener('click', () => {
   searchInput.value = '';
   searchQuery = '';
   searchClear.style.display = 'none';
-  renderGrid();
+  if (activeView === 'grid') renderGrid();
+  else if (activeView === 'timeline') renderTimeline();
 });
 
-// ── Tabs ──
+// ═══════════════════════════════════════
+// Tabs
+// ═══════════════════════════════════════
 document.getElementById('tabs').addEventListener('click', e => {
   if (!e.target.classList.contains('tab')) return;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -526,25 +845,24 @@ document.getElementById('tabs').addEventListener('click', e => {
   activeTab = e.target.dataset.cat;
   if (activeView === 'grid') renderGrid();
   else if (activeView === 'timeline') renderTimeline();
+  else if (activeView === 'map') switchView('grid'); // auto-switch from map
 });
 
-// ── Bottom Nav ──
+// ═══════════════════════════════════════
+// Bottom Nav
+// ═══════════════════════════════════════
 document.querySelector('.bottom-nav').addEventListener('click', e => {
   const btn = e.target.closest('.nav-item');
   if (!btn) return;
   switchView(btn.dataset.view);
 });
 
-// ── FAB & Import Modal ──
-document.getElementById('fab').addEventListener('click', () => {
-  importModal.classList.add('open');
-});
-document.getElementById('modalCancel').addEventListener('click', () => {
-  importModal.classList.remove('open');
-});
-importModal.addEventListener('click', e => {
-  if (e.target === importModal) importModal.classList.remove('open');
-});
+// ═══════════════════════════════════════
+// FAB & Import Modal
+// ═══════════════════════════════════════
+document.getElementById('fab').addEventListener('click', () => importModal.classList.add('open'));
+document.getElementById('modalCancel').addEventListener('click', () => importModal.classList.remove('open'));
+importModal.addEventListener('click', e => { if (e.target === importModal) importModal.classList.remove('open'); });
 document.getElementById('importCamera').addEventListener('click', () => {
   importModal.classList.remove('open');
   showToast('📷 相机功能将在 iOS/Android 端实现');
@@ -558,7 +876,9 @@ document.getElementById('importICloud').addEventListener('click', () => {
   showToast('☁️ iCloud 同步将在 Phase 1 实现');
 });
 
-// ── Toast ──
+// ═══════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════
 function showToast(msg) {
   toast.textContent = msg;
   toast.classList.add('show');
@@ -566,18 +886,241 @@ function showToast(msg) {
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2000);
 }
 
-// ── Keyboard shortcuts ──
+// ═══════════════════════════════════════
+// AI Auto-Tagging Simulation
+// ═══════════════════════════════════════
+const aiLog = document.getElementById('aiLog');
+const aiStatus = document.getElementById('aiStatus');
+const aiSubstatus = document.getElementById('aiSubstatus');
+const aiPercent = document.getElementById('aiPercent');
+const aiCloseBtn = document.getElementById('aiCloseBtn');
+
+document.getElementById('btnAiTag').addEventListener('click', startAiTagging);
+
+function startAiTagging() {
+  aiOverlay.classList.add('open');
+  aiLog.innerHTML = '';
+  aiPercent.textContent = '0%';
+  aiStatus.textContent = '初始化 MiMo-V2.5-Pro 多模态引擎...';
+  aiSubstatus.textContent = '加载视觉编码器 + 文本解码器';
+  aiCloseBtn.style.display = 'none';
+  document.body.style.overflow = 'hidden';
+
+  addAiLog('🚀 启动 MiMo-V2.5-Pro 推理服务', '');
+  addAiLog('📦 加载模型权重: vision_encoder.bin (4.2GB)', '');
+  addAiLog('✅ 模型加载完成 (用时 2.1s)', 'done');
+
+  const untagged = photos.filter(p => !p.aiTags);
+  if (untagged.length === 0) {
+    // Reset all tags to demo again
+    photos.forEach(p => { p.aiTags = null; });
+    aiTaggedCount = 0;
+  }
+
+  const toTag = photos.filter(p => !p.aiTags);
+  let processed = 0;
+  const total = toTag.length;
+
+  aiStatus.textContent = `开始分析 ${total} 张照片...`;
+  aiSubstatus.textContent = '使用多模态视觉理解 + OCR 文字提取';
+
+  const aiPossibleTags = {
+    portrait: ['人脸', '微笑', '合影', '室外', '自然光', '半身像', '旅行'],
+    landscape: ['山脉', '日落', '云海', '广角', '黄金时刻', '自然', '远景'],
+    document: ['文字', '截图', '表格', 'PDF', '收据', '合同', '扫描件'],
+    pet: ['猫咪', '橘猫', '室内', '特写', '宠物', '毛茸茸', '可爱'],
+    food: ['美食', '日料', '餐厅', '特写', '摆盘', '日式', '晚餐'],
+    other: ['截图', '素材', 'UI', '设计', '参考', '灵感', '网络']
+  };
+
+  function processNext() {
+    if (processed >= total) {
+      // Done
+      aiTaggedCount = photos.filter(p => p.aiTags).length;
+      aiStatus.textContent = `✅ 分类完成！`;
+      aiSubstatus.textContent = `已处理 ${aiTaggedCount} 张，生成 ${aiTaggedCount * 3} 个标签`;
+      aiPercent.textContent = '100%';
+      aiCloseBtn.style.display = 'block';
+      addAiLog(`✅ 全部完成: ${aiTaggedCount} 张照片已分类`, 'done');
+      addAiLog(`📊 Token 消耗: ~${(aiTaggedCount * 5).toLocaleString()}K (MiMo-V2.5)`, '');
+      addAiLog(`💰 预估成本: ¥${(aiTaggedCount * 0.015).toFixed(2)} (DeepSeek 定价)`, '');
+      renderGrid();
+      renderCategoryView();
+      renderMap();
+      return;
+    }
+
+    const p = toTag[processed];
+    const percent = Math.round(((processed + 1) / total) * 100);
+    aiPercent.textContent = percent + '%';
+    aiStatus.textContent = `分析中: ${p.filename}`;
+
+    // Simulate AI choosing tags
+    const pool = aiPossibleTags[p.category] || aiPossibleTags.other;
+    const chosen = [];
+    const used = new Set();
+    while (chosen.length < 3) {
+      const t = pool[Math.floor(Math.random() * pool.length)];
+      if (!used.has(t)) { used.add(t); chosen.push(t); }
+    }
+    p.aiTags = chosen;
+
+    addAiLog(`🖼️ ${p.filename} → ${chosen.join(', ')}`, 'tag');
+    aiSubstatus.textContent = `${p.emoji} 检测到: ${chosen[0]}, ${chosen[1]}`;
+
+    processed++;
+    const delay = 150 + Math.random() * 400;
+    setTimeout(processNext, delay);
+  }
+
+  setTimeout(processNext, 600);
+}
+
+function addAiLog(msg, cls) {
+  const line = document.createElement('div');
+  line.className = 'log-line ' + (cls || '');
+  line.textContent = msg;
+  aiLog.appendChild(line);
+  aiLog.scrollTop = aiLog.scrollHeight;
+}
+
+aiCloseBtn.addEventListener('click', () => {
+  aiOverlay.classList.remove('open');
+  document.body.style.overflow = '';
+  renderGrid();
+  renderTimeline();
+  renderCategoryView();
+});
+
+// ═══════════════════════════════════════
+// Dedup Scan Simulation
+// ═══════════════════════════════════════
+const dedupPhase = document.getElementById('dedupPhase');
+const dedupProgressFill = document.getElementById('dedupProgressFill');
+const dedupScanGrid = document.getElementById('dedupScanGrid');
+const dedupResults = document.getElementById('dedupResults');
+const dedupSummary = document.getElementById('dedupSummary');
+const dedupCloseBtn = document.getElementById('dedupCloseBtn');
+
+document.getElementById('btnDedup').addEventListener('click', startDedup);
+
+function startDedup() {
+  // Reset
+  photos.forEach(p => { p.isDuplicate = false; p.duplicateOf = null; });
+  dedupOverlay.classList.add('open');
+  dedupResults.innerHTML = '';
+  dedupResults.style.display = 'none';
+  dedupSummary.style.display = 'none';
+  dedupCloseBtn.style.display = 'none';
+  dedupProgressFill.style.width = '0%';
+  document.body.style.overflow = 'hidden';
+
+  // Fill scan grid with mini photos
+  dedupScanGrid.innerHTML = '';
+  for (let i = 0; i < 24; i++) {
+    const mini = document.createElement('div');
+    mini.className = 'mini';
+    mini.textContent = emojis[i % emojis.length];
+    dedupScanGrid.appendChild(mini);
+  }
+
+  // Phase 1: pHash
+  dedupPhase.textContent = '阶段 1/3: 计算 pHash 感知指纹...';
+  setTimeout(() => {
+    dedupProgressFill.style.width = '33%';
+    // Phase 2: Feature vectors
+    dedupPhase.textContent = '阶段 2/3: 生成 CLIP 特征向量 (Embedding)...';
+    setTimeout(() => {
+      dedupProgressFill.style.width = '66%';
+      // Phase 3: Similarity comparison
+      dedupPhase.textContent = '阶段 3/3: 余弦相似度比对 630 对...';
+
+      setTimeout(() => {
+        dedupProgressFill.style.width = '100%';
+        dedupPhase.textContent = '✅ 扫描完成';
+
+        // Simulate finding duplicates
+        const dupPairs = [
+          { a: photos[2], b: photos[20], sim: '97.3%' },
+          { a: photos[7], b: photos[25], sim: '94.1%' },
+          { a: photos[11], b: photos[29], sim: '91.8%' },
+          { a: photos[4], b: photos[14], sim: '88.5%' },
+        ];
+
+        dupPairs.forEach(pair => {
+          pair.a.isDuplicate = true;
+          pair.a.duplicateOf = pair.b.id;
+          pair.b.isDuplicate = true;
+          pair.b.duplicateOf = pair.a.id;
+        });
+
+        const dupCount = new Set(dupPairs.flatMap(p => [p.a.id, p.b.id])).size;
+
+        dedupSummary.innerHTML = `
+          <div class="found">${dupPairs.length} 组重复</div>
+          <div>涉及 ${dupCount} 张照片 · 可释放 ${(dupPairs.length * 4.7).toFixed(1)} MB</div>
+        `;
+        dedupSummary.style.display = 'block';
+
+        dedupResults.innerHTML = '';
+        dupPairs.forEach(pair => {
+          const card = document.createElement('div');
+          card.className = 'dedup-result-card';
+          card.innerHTML = `
+            <div class="pair">
+              <div class="dup-img" style="background:${pair.a.color}">${pair.a.emoji}</div>
+              <div class="dup-img" style="background:${pair.b.color}">${pair.b.emoji}</div>
+            </div>
+            <div class="dup-info">
+              <div>${pair.a.filename}</div>
+              <div>${pair.b.filename}</div>
+              <div style="color:#888;font-size:11px;">${pair.a.location}</div>
+            </div>
+            <span class="dup-sim">${pair.sim}</span>
+          `;
+          dedupResults.appendChild(card);
+        });
+        dedupResults.style.display = 'block';
+        dedupCloseBtn.style.display = 'block';
+
+        // Update grid if visible
+        renderGrid();
+        renderTimeline();
+      }, 1200);
+    }, 1000);
+  }, 800);
+}
+
+dedupCloseBtn.addEventListener('click', () => {
+  dedupOverlay.classList.remove('open');
+  document.body.style.overflow = '';
+});
+
+// ═══════════════════════════════════════
+// Keyboard
+// ═══════════════════════════════════════
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeLightbox();
     importModal.classList.remove('open');
+    if (aiOverlay.classList.contains('open') && aiCloseBtn.style.display !== 'none') {
+      aiOverlay.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    if (dedupOverlay.classList.contains('open') && dedupCloseBtn.style.display !== 'none') {
+      dedupOverlay.classList.remove('open');
+      document.body.style.overflow = '';
+    }
   }
 });
 
-// ── Init ──
+// ═══════════════════════════════════════
+// Init
+// ═══════════════════════════════════════
 renderGrid();
 renderTimeline();
 renderCategoryView();
+renderMap();
 </script>
 </body>
 </html>
