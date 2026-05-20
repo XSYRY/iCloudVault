@@ -69,6 +69,15 @@ body {
 .photo-card.select-mode .tag-badge { display:none; }
 
 @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes rippleOut {
+  0% { transform:translate(-50%,-50%) scale(0); opacity:0.6; }
+  100% { transform:translate(-50%,-50%) scale(1); opacity:0; }
+}
+.ripple {
+  position:fixed; border-radius:50%; pointer-events:none; z-index:85;
+  background:radial-gradient(circle, #bb86fc66 0%, #bb86fc22 40%, transparent 70%);
+  animation: rippleOut 0.5s ease-out forwards;
+}
 
 /* ── Lightbox ── */
 .lightbox { display:none; position:fixed; inset:0; background:#000000ee; z-index:100; flex-direction:column; align-items:center; justify-content:center; }
@@ -677,8 +686,8 @@ function renderGrid() {
       });
       // Long press for select mode
       let longPressTimer;
-      card.addEventListener('pointerdown', () => {
-        longPressTimer = setTimeout(() => enterSelectMode(p.id), 500);
+      card.addEventListener('pointerdown', (e) => {
+        longPressTimer = setTimeout(() => enterSelectMode(p.id, card), 500);
       });
       card.addEventListener('pointerup', () => clearTimeout(longPressTimer));
       card.addEventListener('pointerleave', () => clearTimeout(longPressTimer));
@@ -690,7 +699,28 @@ function renderGrid() {
 // ═══════════════════════════════════
 // Select Mode
 // ═══════════════════════════════════
-function enterSelectMode(firstId) {
+function enterSelectMode(firstId, cardEl) {
+  // Ripple from the long-pressed card
+  if (cardEl) {
+    const rect = cardEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    // Size ripple to cover roughly the viewport diagonal from that point
+    const toTopLeft = Math.sqrt(cx*cx + cy*cy);
+    const toBotRight = Math.sqrt((window.innerWidth-cx)**2 + (window.innerHeight-cy)**2);
+    const radius = Math.max(toTopLeft, toBotRight) * 2;
+
+    const ripple = document.createElement('div');
+    ripple.className = 'ripple';
+    ripple.style.left = cx + 'px';
+    ripple.style.top = cy + 'px';
+    ripple.style.width = radius + 'px';
+    ripple.style.height = radius + 'px';
+    document.body.appendChild(ripple);
+
+    ripple.addEventListener('animationend', () => ripple.remove());
+  }
+
   selectMode = true;
   selectedPhotos.clear();
   if (firstId !== undefined) selectedPhotos.add(firstId);
