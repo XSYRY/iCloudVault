@@ -1827,6 +1827,14 @@ body {
 .exif-edit-input:focus { border-color:var(--primary); }
 .exif-edit-btn { background:var(--primary); color:var(--on-primary); border:none; border-radius:var(--md-shape-full); padding:4px 12px; font-size:11px; cursor:pointer; font-weight:500; margin-top:8px; }
 </style>
+	<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
+	<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+	<script type="module">
+	  import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+	  window._transformersPipeline = pipeline;
+	  window._transformersEnv = env;
+	</script>
 </head>
 <body>
 
@@ -2668,15 +2676,26 @@ tbFav.addEventListener('click', () => {
   hideToolbar();
 });
 
-tbAiScan.addEventListener('click', () => {
+tbAiScan.addEventListener('click', async () => {
   const p = toolbarPhoto;
+  hideToolbar();
   if (p) {
     if (!p.aiTags) {
-      p.aiTags = generateAiTags(p);
-      aiTaggedCount = photos.filter(ph => ph.aiTags).length;
-      aiTaggedCountEl.textContent = aiTaggedCount;
-      refreshActiveView();
-      showToast(`🤖 ${p.filename} → ${p.aiTags.join(', ')}`);
+      autoAiBar.classList.add('active');
+      showToast('🤖 正在分析...');
+      const result = await classifyImage(p.img);
+      autoAiBar.classList.remove('active');
+      if (result) {
+        p.aiTags = result.tags;
+        if (result.category !== p.category) p.category = result.category;
+        aiTaggedCount = photos.filter(ph => ph.aiTags).length;
+        aiTaggedCountEl.textContent = aiTaggedCount;
+        savePhotoState();
+        refreshActiveView();
+        showToast(`🤖 ${p.filename} → ${result.tags.join(', ')}`);
+      } else {
+        showToast('❌ 分析失败，请重试');
+      }
     } else {
       showToast('此照片已 AI 分析过');
     }
@@ -2684,91 +2703,448 @@ tbAiScan.addEventListener('click', () => {
   hideToolbar();
 });
 
+// ═══════════════════════════════════
+// TensorFlow.js MobileNet 图像分类
+// ═══════════════════════════════════
+let _mobilenetModel = null;
+let _mobilenetLoading = false;
+
+async function loadMobileNet() {
+  if (_mobilenetModel) return _mobilenetModel;
+  if (_mobilenetLoading) {
+    // 等待正在加载的模型
+    while (_mobilenetLoading) await new Promise(r => setTimeout(r, 200));
+    return _mobilenetModel;
+  }
+  _mobilenetLoading = true;
+  try {
+    showToast('🤖 正在加载 AI 模型...');
+    _mobilenetModel = await mobilenet.load({ version: 2, alpha: 1.0 });
+    showToast('✅ AI 模型就绪');
+    return _mobilenetModel;
+  } catch (e) {
+    console.error('MobileNet 加载失败:', e);
+    showToast('❌ AI 模型加载失败，请检查网络');
+    return null;
+  } finally {
+    _mobilenetLoading = false;
+  }
+}
+
+// ImageNet 标签 → 中文标签 映射
+const imagenetToZh = {
+  // 动物
+  'cat': '猫咪', 'kitten': '小猫', 'tabby': '虎斑猫', 'tiger cat': '虎斑猫',
+  'persian cat': '波斯猫', 'siamese cat': '暹罗猫', 'egyptian cat': '埃及猫',
+  'dog': '狗狗', 'puppy': '小狗', 'golden retriever': '金毛', 'labrador': '拉布拉多',
+  'husky': '哈士奇', 'poodle': '贵宾犬', 'bulldog': '斗牛犬', 'beagle': '比格犬',
+  'bird': '鸟类', 'parrot': '鹦鹉', 'eagle': '鹰', 'owl': '猫头鹰',
+  'fish': '鱼', 'goldfish': '金鱼', 'turtle': '乌龟', 'snake': '蛇',
+  'rabbit': '兔子', 'hamster': '仓鼠', 'horse': '马', 'cow': '牛',
+  'sheep': '羊', 'pig': '猪', 'chicken': '鸡', 'duck': '鸭',
+  'butterfly': '蝴蝶', 'bee': '蜜蜂', 'spider': '蜘蛛',
+  // 食物
+  'pizza': '披萨', 'hamburger': '汉堡', 'hot dog': '热狗', 'sandwich': '三明治',
+  'ice cream': '冰淇淋', 'cake': '蛋糕', 'chocolate': '巧克力', 'cookie': '饼干',
+  'bread': '面包', 'rice': '米饭', 'noodle': '面条', 'soup': '汤',
+  'coffee': '咖啡', 'tea': '茶', 'beer': '啤酒', 'wine': '红酒',
+  'fruit': '水果', 'apple': '苹果', 'banana': '香蕉', 'orange': '橙子',
+  'strawberry': '草莓', 'grape': '葡萄', 'watermelon': '西瓜', 'mango': '芒果',
+  'sushi': '寿司', 'doughnut': '甜甜圈', 'burrito': '卷饼',
+  // 自然风景
+  'seashore': '海边', 'coast': '海岸', 'beach': '沙滩', 'cliff': '悬崖',
+  'volcano': '火山', 'mountain': '山脉', 'valley': '山谷', 'lake': '湖泊',
+  'river': '河流', 'waterfall': '瀑布', 'forest': '森林', 'tree': '树木',
+  'flower': '花朵', 'rose': '玫瑰', 'sunflower': '向日葵', 'tulip': '郁金香',
+  'sky': '天空', 'sunset': '日落', 'rainbow': '彩虹', 'snow': '雪景',
+  'desert': '沙漠', 'island': '海岛', 'garden': '花园',
+  // 交通工具
+  'car': '汽车', 'sports car': '跑车', 'taxi': '出租车', 'bus': '公交车',
+  'motorcycle': '摩托车', 'bicycle': '自行车', 'airplane': '飞机', 'helicopter': '直升机',
+  'boat': '船只', 'ship': '轮船', 'train': '火车', 'truck': '卡车',
+  // 建筑
+  'building': '建筑', 'house': '房屋', 'church': '教堂', 'castle': '城堡',
+  'tower': '塔', 'bridge': '桥梁', 'palace': '宫殿', 'temple': '寺庙',
+  'skyscraper': '摩天楼', 'lighthouse': '灯塔', 'windmill': '风车',
+  // 人物活动
+  'person': '人物', 'people': '人群', 'wedding': '婚礼', 'baby': '婴儿',
+  'swimming': '游泳', 'surfing': '冲浪', 'skiing': '滑雪', 'dancing': '舞蹈',
+  'running': '跑步', 'cycling': '骑行', 'climbing': '攀岩',
+  // 物品
+  'book': '书籍', 'phone': '手机', 'computer': '电脑', 'keyboard': '键盘',
+  'camera': '相机', 'television': '电视', 'clock': '时钟', 'glasses': '眼镜',
+  'umbrella': '雨伞', 'bag': '包包', 'shoe': '鞋子', 'hat': '帽子',
+  'guitar': '吉他', 'piano': '钢琴', 'violin': '小提琴', 'drum': '鼓',
+};
+
+// 分类图像并生成标签
+async function classifyImage(imgSrc) {
+  const model = await loadMobileNet();
+  if (!model) return null;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = async () => {
+      try {
+        const predictions = await model.classify(img, 5);
+        const tags = [];
+        const seen = new Set();
+
+        for (const pred of predictions) {
+          // 从英文标签查找中文映射
+          const className = pred.className.toLowerCase();
+          // 尝试精确匹配
+          for (const [key, zh] of Object.entries(imagenetToZh)) {
+            if (className.includes(key) && !seen.has(zh)) {
+              tags.push(zh);
+              seen.add(zh);
+              break;
+            }
+          }
+        }
+
+        // 置信度最高的结果作为主标签
+        if (tags.length === 0 && predictions.length > 0) {
+          // 用原始英文标签的简短形式
+          const raw = predictions[0].className.split(',')[0].trim();
+          tags.push(raw.length > 8 ? raw.substring(0, 8) : raw);
+        }
+
+        // 确定分类
+        const category = inferCategory(predictions);
+
+        resolve({ tags: tags.slice(0, 5), category });
+      } catch (e) {
+        console.error('分类失败:', e);
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = imgSrc;
+  });
+}
+
+function inferCategory(predictions) {
+  const animalWords = ['cat','dog','bird','fish','rabbit','hamster','horse','butterfly','animal','pet','kitten','puppy'];
+  const foodWords = ['pizza','burger','food','fruit','cake','coffee','sushi','bread','meal','drink','restaurant'];
+  const docWords = ['screen','monitor','computer','keyboard','menu','web','site','notebook','book','page','document','print'];
+  const personWords = ['person','people','man','woman','child','baby','face','bride','groom','player'];
+
+  for (const pred of predictions) {
+    const cl = pred.className.toLowerCase();
+    if (animalWords.some(w => cl.includes(w))) return 'pet';
+    if (foodWords.some(w => cl.includes(w))) return 'food';
+    if (docWords.some(w => cl.includes(w))) return 'document';
+    if (personWords.some(w => cl.includes(w))) return 'portrait';
+  }
+  return 'landscape';
+}
+
+// ═══════════════════════════════════
+// face-api.js 人脸识别
+// ═══════════════════════════════════
+let _faceApiReady = false;
+const FACE_MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+
+async function loadFaceModels() {
+  if (_faceApiReady) return true;
+  try {
+    await Promise.all([
+      faceapi.nets.ssdMobilenetv1.loadFromUri(FACE_MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODEL_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODEL_URL),
+    ]);
+    _faceApiReady = true;
+    return true;
+  } catch (e) {
+    console.error('face-api 模型加载失败:', e);
+    return false;
+  }
+}
+
+async function detectFaces(imgSrc) {
+  const ready = await loadFaceModels();
+  if (!ready) return [];
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = async () => {
+      try {
+        const detections = await faceapi
+          .detectAllFaces(img)
+          .withFaceLandmarks()
+          .withFaceDescriptors();
+        resolve(detections.map(d => ({
+          descriptor: Array.from(d.descriptor),
+          box: d.detection.box,
+        })));
+      } catch (e) {
+        console.error('人脸检测失败:', e);
+        resolve([]);
+      }
+    };
+    img.onerror = () => resolve([]);
+    img.src = imgSrc;
+  });
+}
+
+// 欧氏距离
+function faceDistance(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += (a[i] - b[i]) ** 2;
+  return Math.sqrt(sum);
+}
+
+// 人脸聚类（简单贪心聚类）
+function clusterFaces(allFaces, threshold = 0.6) {
+  // allFaces: [{ photoId, descriptor }]
+  const clusters = []; // [[{ photoId, descriptor }]]
+  for (const face of allFaces) {
+    let matched = false;
+    for (const cluster of clusters) {
+      if (faceDistance(face.descriptor, cluster[0].descriptor) < threshold) {
+        cluster.push(face);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      clusters.push([face]);
+    }
+  }
+  // 只保留 2 张以上的聚类（真正的"人物"）
+  return clusters.filter(c => c.length >= 2).map((members, i) => ({
+    id: 'person_' + i,
+    name: '人物 ' + (i + 1),
+    photoIds: [...new Set(members.map(m => m.photoId))],
+    cover: members[0].photoId,
+  }));
+}
+
+// 批量检测人脸并聚类
+async function scanFaces() {
+  const activePhotos = photos.filter(p => !p.deleted && !p.hidden);
+  if (activePhotos.length === 0) { showToast('没有可分析的照片'); return; }
+
+  autoAiBar.classList.add('active');
+  showToast('👤 正在检测人脸...');
+
+  const ready = await loadFaceModels();
+  if (!ready) {
+    autoAiBar.classList.remove('active');
+    showToast('❌ 人脸模型加载失败');
+    return;
+  }
+
+  const allFaces = [];
+  let count = 0;
+
+  for (const p of activePhotos) {
+    const faces = await detectFaces(p.img);
+    for (const face of faces) {
+      allFaces.push({ photoId: p.id, descriptor: face.descriptor });
+    }
+    p.faceCount = faces.length;
+    count++;
+    if (count % 10 === 0) {
+      showToast(`👤 已扫描 ${count}/${activePhotos.length} 张...`);
+    }
+  }
+
+  autoAiBar.classList.remove('active');
+
+  if (allFaces.length === 0) {
+    showToast('未检测到人脸');
+    return;
+  }
+
+  // 聚类
+  const people = clusterFaces(allFaces);
+  if (people.length > 0) {
+    // 合并到已有人物或新建
+    window._detectedPeople = people;
+    savePhotoState();
+    showToast(`👤 检测到 ${allFaces.length} 张人脸，${people.length} 个人物`);
+    if (activeView === 'category') renderCategoryView();
+  } else {
+    showToast(`👤 检测到 ${allFaces.length} 张人脸，但无法聚类（照片太少）`);
+  }
+}
+
 // 批量 AI 扫描
-function batchAiScan(photoList) {
+async function batchAiScan(photoList) {
   const unscanned = photoList.filter(p => !p.aiTags && !p.deleted && !p.hidden);
   if (unscanned.length === 0) { showToast('所有照片已分析过'); return; }
+
+  // 先加载模型
+  const model = await loadMobileNet();
+  if (!model) return;
+
   let count = 0;
+  let successCount = 0;
   autoAiBar.classList.add('active');
-  const scan = () => {
-    if (count >= unscanned.length) {
-      autoAiBar.classList.remove('active');
+
+  for (const p of unscanned) {
+    if (p.aiTags) { count++; continue; }
+    const result = await classifyImage(p.img);
+    if (result) {
+      p.aiTags = result.tags;
+      if (result.category !== p.category) p.category = result.category;
+      successCount++;
+    }
+    count++;
+    // 每 5 张更新一次 UI
+    if (count % 5 === 0) {
       aiTaggedCount = photos.filter(ph => ph.aiTags).length;
       aiTaggedCountEl.textContent = aiTaggedCount;
       refreshActiveView();
-      showToast(`🤖 已完成 ${count} 张照片的 AI 分析`);
-      return;
     }
-    const batch = unscanned.slice(count, count + 5);
-    batch.forEach(p => { p.aiTags = generateAiTags(p); });
-    count += batch.length;
-    setTimeout(scan, 80);
-  };
-  scan();
+  }
+
+  autoAiBar.classList.remove('active');
+  aiTaggedCount = photos.filter(ph => ph.aiTags).length;
+  aiTaggedCountEl.textContent = aiTaggedCount;
+  savePhotoState();
+  refreshAllViews();
+  showToast(`🤖 已完成 ${successCount}/${unscanned.length} 张照片的 AI 分析`);
 }
 
-function generateAiTags(photo) {
-  const pools = {
-    portrait: {
-      base: ['人像','肖像','面部','表情'],
-      scene: ['室内','室外','自然光','影棚','逆光'],
-      detail: ['微笑','大笑','侧脸','特写','合影','自拍','半身','全身'],
-      style: ['暖色调','柔和','高对比','黑白']
-    },
-    landscape: {
-      base: ['风景','自然','户外'],
-      scene: ['山脉','海边','日落','日出','星空','云海','草原','沙漠','雪景','森林','湖泊','瀑布'],
-      detail: ['广角','全景','远景','倒影','剪影','延时'],
-      style: ['黄金时刻','蓝色时刻','雾气','霞光']
-    },
-    document: {
-      base: ['文档','资料'],
-      scene: ['文字','表格','图表','代码','笔记','白板','名片','发票'],
-      detail: ['截图','PDF','扫描件','打印件','手写'],
-      style: ['清晰','高对比','黑白']
-    },
-    pet: {
-      base: ['宠物','动物'],
-      scene: ['室内','室外','沙发','窗台','草地'],
-      detail: ['猫咪','狗狗','特写','全身','睡姿','玩耍','进食','跳跃'],
-      style: ['可爱','温馨','抓拍']
-    },
-    food: {
-      base: ['美食','餐饮'],
-      scene: ['餐厅','厨房','外卖','野餐','餐桌'],
-      detail: ['主食','甜点','饮品','水果','小吃','日料','中餐','西餐','烧烤','火锅'],
-      style: ['特写','摆盘','俯拍','暖色调']
-    },
-    other: {
-      base: ['其他','素材'],
-      scene: ['截图','UI','设计','参考','PPT','网页','APP','图标'],
-      detail: ['界面','原型','草图','插画','海报','Logo','名片'],
-      style: ['扁平','渐变','暗色','亮色']
+// ═══════════════════════════════════
+// Transformers.js CLIP 语义搜索
+// ═══════════════════════════════════
+let _clipExtractor = null;
+let _clipReady = false;
+
+async function loadCLIP() {
+  if (_clipReady) return _clipExtractor;
+  if (!window._transformersPipeline) {
+    console.warn('Transformers.js 未加载');
+    return null;
+  }
+  try {
+    showToast('🧠 正在加载语义搜索模型...');
+    // 使用特征提取管道，Xenova 的 CLIP 模型
+    _clipExtractor = await window._transformersPipeline(
+      'feature-extraction',
+      'Xenova/clip-vit-base-patch32',
+      { quantized: true }
+    );
+    _clipReady = true;
+    showToast('✅ 语义搜索就绪');
+    return _clipExtractor;
+  } catch (e) {
+    console.error('CLIP 加载失败:', e);
+    showToast('❌ 语义搜索模型加载失败');
+    return null;
+  }
+}
+
+// 为文本生成嵌入向量
+async function getTextEmbedding(text) {
+  const extractor = await loadCLIP();
+  if (!extractor) return null;
+  const output = await extractor(text, { pooling: 'mean', normalize: true });
+  return Array.from(output.data);
+}
+
+// 余弦相似度
+function cosineSimilarity(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+// 语义搜索
+async function semanticSearch(query) {
+  const queryEmbedding = await getTextEmbedding(query);
+  if (!queryEmbedding) return [];
+
+  const activePhotos = photos.filter(p => !p.deleted && !p.hidden);
+  // 基于文本描述的简单语义匹配（不依赖图像嵌入）
+  const results = [];
+
+  for (const p of activePhotos) {
+    // 构建照片的文本描述
+    const desc = [
+      p.filename,
+      p.location,
+      p.category,
+      ...(p.tags || []),
+      ...(p.aiTags || []),
+      p.date,
+    ].join(' ');
+
+    const descEmbedding = await getTextEmbedding(desc);
+    if (descEmbedding) {
+      const sim = cosineSimilarity(queryEmbedding, descEmbedding);
+      if (sim > 0.2) {
+        results.push({ photo: p, score: sim });
+      }
     }
+  }
+
+  results.sort((a, b) => b.score - a.score);
+  return results.slice(0, 50).map(r => r.photo);
+}
+
+// 增强版语义搜索（使用关键词 + 语义结合）
+function enhancedSemanticSearch(query) {
+  const q = query.toLowerCase();
+  const activePhotos = photos.filter(p => !p.deleted && !p.hidden);
+
+  // 时间过滤
+  const timePatterns = {
+    '今年': p => p.date.startsWith('2026'),
+    '去年': p => p.date.startsWith('2025'),
+    '前年': p => p.date.startsWith('2024'),
+    '2026': p => p.date.startsWith('2026'),
+    '2025': p => p.date.startsWith('2025'),
+    '2024': p => p.date.startsWith('2024'),
+    '春天': p => ['03','04','05'].includes(p.date.substring(5,7)),
+    '夏天': p => ['06','07','08'].includes(p.date.substring(5,7)),
+    '秋天': p => ['09','10','11'].includes(p.date.substring(5,7)),
+    '冬天': p => ['12','01','02'].includes(p.date.substring(5,7)),
   };
 
-  const cat = photo.category || 'other';
-  const pool = pools[cat] || pools.other;
-  const chosen = new Set();
-
-  // 根据文件名智能匹配
-  const fn = (photo.filename || '').toLowerCase();
-  const allTags = [...pool.base, ...pool.scene, ...pool.detail, ...pool.style];
-  allTags.forEach(t => { if (fn.includes(t.toLowerCase())) chosen.add(t); });
-
-  // 填充到 3-5 个标签
-  const fillFrom = (arr, max) => {
-    const shuffled = arr.slice().sort(() => Math.random() - 0.5);
-    for (const t of shuffled) {
-      if (chosen.size >= max) break;
-      chosen.add(t);
-    }
+  // 内容过滤
+  const contentPatterns = {
+    '海': p => p.location.includes('海') || (p.aiTags||[]).some(t => t.includes('海')),
+    '山': p => p.location.includes('山') || (p.aiTags||[]).some(t => t.includes('山')),
+    '日落': p => (p.aiTags||[]).some(t => t.includes('日落') || t.includes('sunset')),
+    '美食': p => p.category === 'food',
+    '猫': p => (p.aiTags||[]).some(t => t.includes('猫') || t.includes('cat')),
+    '狗': p => (p.aiTags||[]).some(t => t.includes('狗') || t.includes('dog')),
+    '人物': p => p.category === 'portrait',
+    '风景': p => p.category === 'landscape',
+    '收藏': p => p.isFavorite,
+    '重复': p => p.isDuplicate,
   };
-  if (chosen.size < 3) fillFrom(pool.detail, 3);
-  if (chosen.size < 4) fillFrom(pool.scene, 4);
-  if (chosen.size < 5) fillFrom(pool.style, 5);
 
-  return [...chosen].slice(0, 5);
+  let results = activePhotos;
+  let matched = false;
+
+  for (const [key, filter] of Object.entries(timePatterns)) {
+    if (q.includes(key)) { results = results.filter(filter); matched = true; }
+  }
+  for (const [key, filter] of Object.entries(contentPatterns)) {
+    if (q.includes(key)) { results = results.filter(filter); matched = true; }
+  }
+
+  // 如果没有规则匹配，尝试标签模糊搜索
+  if (!matched) {
+    results = activePhotos.filter(p => {
+      const allTags = [...(p.tags||[]), ...(p.aiTags||[]), p.location, p.filename].join(' ').toLowerCase();
+      return q.split(/\s+/).some(word => word.length > 1 && allTags.includes(word));
+    });
+  }
+
+  return results;
 }
 
 async function sharePhotos(photoList) {
@@ -3137,17 +3513,42 @@ function parseSemanticQuery(query) {
 
 function matchSemantic(photo, filters) {
   if (!filters.raw) return true;
+  const q = filters.raw.toLowerCase();
+
+  // 时间匹配（增强）
   if (filters.timePattern) {
     const pattern = filters.timePattern;
     if (pattern.match(/^\d{4}$/)) { if (!photo.date.startsWith(pattern)) return false; }
   }
+  // 额外时间关键词
+  const month = photo.date.substring(5, 7);
+  if (q.includes('春天') && !['03','04','05'].includes(month)) return false;
+  if (q.includes('夏天') && !['06','07','08'].includes(month)) return false;
+  if (q.includes('秋天') && !['09','10','11'].includes(month)) return false;
+  if (q.includes('冬天') && !['12','01','02'].includes(month)) return false;
+
+  // 地点匹配
   if (filters.locKeywords && filters.locKeywords.length > 0) {
     if (!filters.locKeywords.some(kw => photo.location.toLowerCase().includes(kw.toLowerCase()))) return false;
   }
+
+  // 内容匹配（增强）
+  const allTags = [...photo.tags, ...(photo.aiTags || [])];
+  const allText = [...allTags, photo.location, photo.filename, photo.category].join(' ').toLowerCase();
+
   if (filters.contentKeywords && filters.contentKeywords.length > 0) {
-    const allTags = [...photo.tags, ...(photo.aiTags || [])];
-    if (!filters.contentKeywords.some(kw => allTags.some(t => t.toLowerCase().includes(kw.toLowerCase())) || photo.category.toLowerCase().includes(kw.toLowerCase()))) return false;
+    if (!filters.contentKeywords.some(kw => allText.includes(kw.toLowerCase()))) return false;
   }
+
+  // 特殊语义
+  if (q.includes('收藏') && !photo.isFavorite) return false;
+  if (q.includes('重复') && !photo.isDuplicate) return false;
+  if (q.includes('人物') && photo.category !== 'portrait') return false;
+  if (q.includes('风景') && photo.category !== 'landscape') return false;
+  if (q.includes('美食') && photo.category !== 'food') return false;
+  if (q.includes('宠物') && photo.category !== 'pet') return false;
+  if (q.includes('文档') && photo.category !== 'document') return false;
+
   return true;
 }
 
@@ -7186,6 +7587,13 @@ enterPin = function(d) {
   origEnterPin(d);
   if (pinEntry.length === 4 && pinEntry === CORRECT_PIN) { setTimeout(startAutoAi, 2000); }
 };
+
+// 预加载 AI 模型（空闲时加载）
+if ('requestIdleCallback' in window) {
+  requestIdleCallback(() => loadMobileNet(), { timeout: 5000 });
+} else {
+  setTimeout(() => loadMobileNet(), 3000);
+}
 </script>
 </body>
 </html>
