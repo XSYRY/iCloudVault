@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <title>iCloudVault</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#D0BCFF">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -140,7 +143,7 @@ body {
   justify-content: center;
   transition: background var(--md-motion-duration-short) var(--md-motion-easing-standard), transform 0.15s var(--md-motion-easing-standard);
 }
-.header-btn.icon-only { width: 40px; height: 40px; }
+.header-btn.icon-only { width: 44px; height: 44px; }
 .header-btn:hover { background: rgba(var(--primary-rgb), 0.08); }
 .header-btn:active { background: rgba(var(--primary-rgb), 0.12); transform:scale(0.92); }
 
@@ -172,8 +175,8 @@ body {
   height: 100%;
 }
 .search-bar input::placeholder { color: var(--on-surface-variant); }
-.search-clear { display:none; background:none; border:none; color:var(--on-surface-variant); font-size:18px; cursor:pointer; padding:4px; }
-.search-suggestions { display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface-container-high);border-radius:0 0 var(--md-shape-lg) var(--md-shape-lg);box-shadow:var(--elevation-2);z-index:30;max-height:280px;overflow-y:auto; }
+.search-clear { display:none; background:none; border:none; color:var(--on-surface-variant); font-size:18px; cursor:pointer; padding:8px; min-width:36px; min-height:36px; display:none; align-items:center; justify-content:center; }
+.search-suggestions { display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface-container-high);border-radius:0 0 var(--md-shape-lg) var(--md-shape-lg);box-shadow:var(--elevation-2);z-index:30;max-height:min(280px,50vh);overflow-y:auto; }
 .search-suggestions.show { display:block;animation:viewFadeIn 0.2s var(--md-motion-easing-decelerated); }
 .search-sug-section { padding:8px 16px 4px;font-size:11px;color:var(--on-surface-variant);font-weight:500;letter-spacing:0.04em;text-transform:uppercase; }
 .search-sug-item { display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:14px;color:var(--on-surface);transition:background 0.1s; }
@@ -214,6 +217,7 @@ body {
   font-size: 12px;
   white-space: nowrap;
   cursor: pointer;
+  min-height: 32px;
   font-weight: 500;
   transition: all var(--md-motion-duration-short) var(--md-motion-easing-standard);
   height: 30px;
@@ -263,7 +267,12 @@ body {
   color: var(--on-secondary-container);
 }
 .filter-chip .chip-del { display: none; background: none; border: none; color: var(--on-surface-variant); font-size: 14px; cursor: pointer; padding: 0 0 0 2px; line-height: 1; }
-.filter-chip:hover .chip-del { display: inline-flex; }
+@media (hover: hover) {
+  .filter-chip:hover .chip-del { display: inline-flex; }
+}
+@media (hover: none) {
+  .filter-chip .chip-del { display: inline-flex; }
+}
 .filter-chip.drag-over-album { background: var(--primary-container) !important; color: var(--on-primary-container) !important; border-color: var(--primary) !important; border-style: solid !important; transform: scale(1.05); transition: all 0.15s; }
 .album-chip-menu {
   display: none;
@@ -327,8 +336,11 @@ body {
               box-shadow 0.2s var(--md-motion-easing-standard);
 }
 .photo-card:active { transform: scale(0.96); transition: transform 0.1s var(--md-motion-easing-standard); }
-.photo-card:hover { box-shadow: var(--elevation-2); z-index: 2; }
-.photo-card:hover img { transform: scale(1.05); }
+@media (hover: hover) {
+  .photo-card:hover { box-shadow: var(--elevation-2); z-index: 2; }
+  .photo-card:hover img { transform: scale(1.05); }
+  .photo-card:hover .card-info-overlay { opacity: 1; transform: translateY(0); }
+}
 .photo-card img { transition: transform 0.3s var(--md-motion-easing-standard); }
 .photo-card .card-info-overlay {
   position: absolute;
@@ -345,7 +357,17 @@ body {
   transition: opacity 0.2s, transform 0.2s;
   pointer-events: none;
 }
-.photo-card:hover .card-info-overlay { opacity: 1; transform: translateY(0); }
+@media (hover: hover) {
+  .photo-card:hover .card-info-overlay { opacity: 1; transform: translateY(0); }
+}
+@media (hover: none) {
+  .photo-card .card-info-overlay {
+    opacity: 0.85;
+    transform: translateY(0);
+    background: linear-gradient(transparent 30%, rgba(0,0,0,0.55));
+    padding: 16px 6px 4px;
+  }
+}
 .card-info-overlay .cio-name { font-weight: 500; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-info-overlay .cio-meta { font-size: 9px; opacity: 0.7; margin-top: 1px; }
 .photo-card.stagger-in { animation: cardStaggerIn 0.3s var(--md-motion-easing-emphasized) both; }
@@ -479,12 +501,14 @@ body {
   align-items: center;
   z-index: 15;
   box-shadow: var(--elevation-2);
+  gap: 8px;
 }
-.toolbar.show { display:flex; }
+.toolbar.show { display:flex; flex-wrap:wrap; }
 .toolbar .tb-photo-info { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
 .toolbar .tb-emoji { font-size:28px; }
 .toolbar .tb-filename { font-size:12px; color:var(--on-surface-variant); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.toolbar .tb-actions { display:flex; gap:2px; }
+.toolbar .tb-actions { display:flex; gap:2px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; flex:1; }
+.toolbar .tb-actions::-webkit-scrollbar { display:none; }
 .toolbar .tb-actions button {
   display: flex;
   flex-direction: column;
@@ -495,18 +519,22 @@ body {
   color: var(--on-surface-variant);
   font-size: 10px;
   cursor: pointer;
-  padding: 6px 12px;
+  padding: 6px 10px;
   border-radius: var(--md-shape-lg);
   transition: background var(--md-motion-duration-short) var(--md-motion-easing-standard);
   min-width: 48px;
   font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.toolbar .tb-actions button:hover { background: rgba(var(--primary-rgb), 0.08); }
+@media (hover: hover) {
+  .toolbar .tb-actions button:hover { background: rgba(var(--primary-rgb), 0.08); }
+}
 .toolbar .tb-actions button:active { background: rgba(var(--primary-rgb), 0.12); }
 .toolbar .tb-actions button .tb-icon { width:22px; height:22px; }
 .toolbar .tb-actions button.danger { color:var(--error); }
-.toolbar .tb-count { font-size:14px; color:var(--on-surface); font-weight:500; margin-right:12px; }
-.toolbar .tb-cancel { background:none; border:none; color:var(--primary); font-size:14px; cursor:pointer; padding:8px 16px; font-weight:500; }
+.toolbar .tb-count { font-size:14px; color:var(--on-surface); font-weight:500; white-space:nowrap; }
+.toolbar .tb-cancel { background:none; border:none; color:var(--primary); font-size:14px; cursor:pointer; padding:8px 12px; font-weight:500; flex-shrink:0; }
 
 /* ── Pull-to-Refresh ── */
 .pull-indicator { display:flex;align-items:center;justify-content:center;height:0;overflow:hidden;transition:height 0.25s ease;background:var(--surface); }
@@ -724,17 +752,22 @@ body {
   border: none;
   color: var(--inverse-on-surface);
   opacity: 0;
+  width: 0;
+  overflow: hidden;
   font-size: 14px;
   cursor: pointer;
-  padding: 0 2px;
+  padding: 0;
   line-height: normal;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, width 0.15s, padding 0.15s;
 }
-.lb-tag:hover .lb-tag-remove { opacity: 0.7; }
-.lb-tag-remove:hover { opacity: 1 !important; }
+.lb-tag.show-remove .lb-tag-remove { opacity: 0.7; width: 18px; padding: 0 2px; }
+@media (hover: hover) {
+  .lb-tag:hover .lb-tag-remove { opacity: 0.7; width: 18px; padding: 0 2px; }
+  .lb-tag-remove:hover { opacity: 1 !important; }
+}
 
 .lb-tag-add {
   padding: 0 12px;
@@ -1202,11 +1235,13 @@ body {
   transition: all var(--md-motion-duration-short) var(--md-motion-easing-standard);
   box-shadow: var(--elevation-1);
 }
-.cat-card:hover { box-shadow:var(--elevation-2);transform:translateY(-2px); }
 .cat-card:active { transform:scale(0.97);box-shadow:var(--elevation-1); }
 .cat-card-preview { position:relative;height:90px;background:var(--surface-container);overflow:hidden; }
 .cat-card-preview .preview-img { position:absolute;width:50%;height:100%;object-fit:cover;transition:transform 0.3s; }
-.cat-card:hover .cat-card-preview .preview-img { transform:scale(1.05); }
+@media (hover: hover) {
+  .cat-card:hover { box-shadow:var(--elevation-2);transform:translateY(-2px); }
+  .cat-card:hover .cat-card-preview .preview-img { transform:scale(1.05); }
+}
 .cat-card-preview .preview-img:nth-child(1) { left:0; }
 .cat-card-preview .preview-img:nth-child(2) { left:50%;border-left:1px solid var(--surface-container-low); }
 .cat-card-preview .cat-emoji { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:36px;z-index:1;background:rgba(0,0,0,0.05); }
@@ -1261,6 +1296,9 @@ body {
 .people-card { display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer; }
 .people-avatar { width:72px;height:72px;border-radius:50%;overflow:hidden;background:var(--surface-container);display:flex;align-items:center;justify-content:center;font-size:32px;border:2px solid var(--surface-variant);transition:transform 0.15s,border-color 0.15s; }
 .people-card:hover .people-avatar { transform:scale(1.05);border-color:var(--primary); }
+@media (hover: none) {
+  .people-card .people-avatar { transform:none; }
+}
 .people-name { font-size:12px;color:var(--on-surface);font-weight:500;text-align:center;max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .people-num { font-size:10px;color:var(--on-surface-variant); }
 .people-detail { display:none;flex-direction:column;height:100%; }
@@ -1326,6 +1364,27 @@ body {
 }
 .map-popup-btn:active { background:var(--primary-fixed-dim); }
 
+/* Map cluster styling */
+.marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+  background: rgba(var(--primary-rgb), 0.2) !important;
+}
+.marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
+  background: var(--primary) !important;
+  color: var(--on-primary) !important;
+  font-family: 'Google Sans', 'Roboto', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  border-radius: 50% !important;
+  width: 36px !important;
+  height: 36px !important;
+  margin-left: 4px !important;
+  margin-top: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+}
+
 .trash-view { display:none;flex:1;overflow-y:auto;padding:16px;background:var(--surface); }
 .trash-view.active { display:flex;flex-direction:column; }
 .trash-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:12px; }
@@ -1337,6 +1396,9 @@ body {
 .trash-card img { position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.5; }
 .trash-card .trash-overlay { position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(0,0,0,0.3);opacity:0;transition:opacity 0.2s; }
 .trash-card:hover .trash-overlay, .trash-card:active .trash-overlay { opacity:1; }
+@media (hover: none) {
+  .trash-card .trash-overlay { opacity:1; background:linear-gradient(transparent 40%,rgba(0,0,0,0.5)); }
+}
 .trash-card .trash-restore, .trash-card .trash-perm-del { padding:4px 12px;border-radius:var(--md-shape-sm);border:none;font-size:11px;cursor:pointer;font-weight:500; }
 .trash-card .trash-restore { background:var(--primary);color:var(--on-primary); }
 .trash-card .trash-perm-del { background:var(--error);color:var(--on-error); }
@@ -1643,7 +1705,9 @@ body {
 .memory-scroll::-webkit-scrollbar { display:none; }
 .memory-item { flex-shrink:0; width:100px; cursor:pointer; border-radius:var(--md-shape-sm); overflow:hidden; position:relative; }
 .memory-item img { width:100px; height:100px; object-fit:cover; display:block; transition:transform 0.2s; }
-.memory-item:hover img { transform:scale(1.05); }
+@media (hover: hover) {
+  .memory-item:hover img { transform:scale(1.05); }
+}
 .memory-item .memory-item-date { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,0.6)); color:#fff; font-size:9px; padding:12px 6px 4px; text-align:center; }
 .map-heatmap-toggle { position:absolute; top:12px; right:12px; z-index:1000; background:var(--surface-container-high); border-radius:var(--md-shape-full); padding:4px; display:flex; gap:2px; box-shadow:var(--elevation-2); }
 .map-heatmap-btn { padding:6px 12px; border-radius:var(--md-shape-full); border:none; background:transparent; color:var(--on-surface-variant); font-size:11px; cursor:pointer; font-weight:500; transition:all 0.15s; }
@@ -1952,6 +2016,7 @@ body {
     <button id="tbSelectAll" style="display:none;"><svg class="tb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>全选</button>
     <button id="tbBatchFav" style="display:none;"><svg class="tb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0l-1 1-1-1a5.5 5.5 0 00-7.8 7.8l1 1 7.8 7.8 7.8-7.8 1-1a5.5 5.5 0 000-7.8z"/></svg>收藏</button>
     <button id="tbBatchTag" style="display:none;"><svg class="tb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>标签</button>
+    <button id="tbBatchAi" style="display:none;"><svg class="tb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15 9 22 9 16 14 18 22 12 17 6 22 8 14 2 9 9 9"/></svg>AI批量</button>
     <button id="tbDownload" style="display:none;"><svg class="tb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>下载</button>
     <button id="tbCollage" style="display:none;"><svg class="tb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>拼图</button>
   </div>
@@ -2518,6 +2583,7 @@ function showToolbarSelect() {
   document.getElementById('tbSelectAll').style.display = '';
   document.getElementById('tbBatchFav').style.display = '';
   document.getElementById('tbBatchTag').style.display = '';
+  document.getElementById('tbBatchAi').style.display = '';
   document.getElementById('tbBatchEdit').style.display = '';
   document.getElementById('tbDownload').style.display = '';
   document.getElementById('tbCollage').style.display = '';
@@ -2557,6 +2623,7 @@ function hideToolbar() {
   document.getElementById('tbSelectAll').style.display = 'none';
   document.getElementById('tbBatchFav').style.display = 'none';
   document.getElementById('tbBatchTag').style.display = 'none';
+  document.getElementById('tbBatchAi').style.display = 'none';
   document.getElementById('tbBatchEdit').style.display = 'none';
   document.getElementById('tbDownload').style.display = 'none';
   document.getElementById('tbCollage').style.display = 'none';
@@ -2594,31 +2661,104 @@ tbAiScan.addEventListener('click', () => {
   const p = toolbarPhoto;
   if (p) {
     if (!p.aiTags) {
-      const pool = {
-        portrait: ['人脸','微笑','合影','室外','自然光'],
-        landscape: ['山脉','日落','云海','广角','黄金时刻'],
-        document: ['文字','截图','表格','PDF','扫描件'],
-        pet: ['猫咪','橘猫','室内','特写','宠物'],
-        food: ['美食','日料','餐厅','特写','摆盘'],
-        other: ['截图','素材','UI','设计','参考']
-      }[p.category] || ['截图','素材'];
-      const chosen = [];
-      const used = new Set();
-      while (chosen.length < 3) {
-        const t = pool[Math.floor(Math.random() * pool.length)];
-        if (!used.has(t)) { used.add(t); chosen.push(t); }
-      }
-      p.aiTags = chosen;
+      p.aiTags = generateAiTags(p);
       aiTaggedCount = photos.filter(ph => ph.aiTags).length;
       aiTaggedCountEl.textContent = aiTaggedCount;
       refreshActiveView();
-      showToast(`🤖 ${p.filename} → ${chosen.join(', ')}`);
+      showToast(`🤖 ${p.filename} → ${p.aiTags.join(', ')}`);
     } else {
       showToast('此照片已 AI 分析过');
     }
   }
   hideToolbar();
 });
+
+// 批量 AI 扫描
+function batchAiScan(photoList) {
+  const unscanned = photoList.filter(p => !p.aiTags && !p.deleted && !p.hidden);
+  if (unscanned.length === 0) { showToast('所有照片已分析过'); return; }
+  let count = 0;
+  autoAiBar.classList.add('active');
+  const scan = () => {
+    if (count >= unscanned.length) {
+      autoAiBar.classList.remove('active');
+      aiTaggedCount = photos.filter(ph => ph.aiTags).length;
+      aiTaggedCountEl.textContent = aiTaggedCount;
+      refreshActiveView();
+      showToast(`🤖 已完成 ${count} 张照片的 AI 分析`);
+      return;
+    }
+    const batch = unscanned.slice(count, count + 5);
+    batch.forEach(p => { p.aiTags = generateAiTags(p); });
+    count += batch.length;
+    setTimeout(scan, 80);
+  };
+  scan();
+}
+
+function generateAiTags(photo) {
+  const pools = {
+    portrait: {
+      base: ['人像','肖像','面部','表情'],
+      scene: ['室内','室外','自然光','影棚','逆光'],
+      detail: ['微笑','大笑','侧脸','特写','合影','自拍','半身','全身'],
+      style: ['暖色调','柔和','高对比','黑白']
+    },
+    landscape: {
+      base: ['风景','自然','户外'],
+      scene: ['山脉','海边','日落','日出','星空','云海','草原','沙漠','雪景','森林','湖泊','瀑布'],
+      detail: ['广角','全景','远景','倒影','剪影','延时'],
+      style: ['黄金时刻','蓝色时刻','雾气','霞光']
+    },
+    document: {
+      base: ['文档','资料'],
+      scene: ['文字','表格','图表','代码','笔记','白板','名片','发票'],
+      detail: ['截图','PDF','扫描件','打印件','手写'],
+      style: ['清晰','高对比','黑白']
+    },
+    pet: {
+      base: ['宠物','动物'],
+      scene: ['室内','室外','沙发','窗台','草地'],
+      detail: ['猫咪','狗狗','特写','全身','睡姿','玩耍','进食','跳跃'],
+      style: ['可爱','温馨','抓拍']
+    },
+    food: {
+      base: ['美食','餐饮'],
+      scene: ['餐厅','厨房','外卖','野餐','餐桌'],
+      detail: ['主食','甜点','饮品','水果','小吃','日料','中餐','西餐','烧烤','火锅'],
+      style: ['特写','摆盘','俯拍','暖色调']
+    },
+    other: {
+      base: ['其他','素材'],
+      scene: ['截图','UI','设计','参考','PPT','网页','APP','图标'],
+      detail: ['界面','原型','草图','插画','海报','Logo','名片'],
+      style: ['扁平','渐变','暗色','亮色']
+    }
+  };
+
+  const cat = photo.category || 'other';
+  const pool = pools[cat] || pools.other;
+  const chosen = new Set();
+
+  // 根据文件名智能匹配
+  const fn = (photo.filename || '').toLowerCase();
+  const allTags = [...pool.base, ...pool.scene, ...pool.detail, ...pool.style];
+  allTags.forEach(t => { if (fn.includes(t.toLowerCase())) chosen.add(t); });
+
+  // 填充到 3-5 个标签
+  const fillFrom = (arr, max) => {
+    const shuffled = arr.slice().sort(() => Math.random() - 0.5);
+    for (const t of shuffled) {
+      if (chosen.size >= max) break;
+      chosen.add(t);
+    }
+  };
+  if (chosen.size < 3) fillFrom(pool.detail, 3);
+  if (chosen.size < 4) fillFrom(pool.scene, 4);
+  if (chosen.size < 5) fillFrom(pool.style, 5);
+
+  return [...chosen].slice(0, 5);
+}
 
 async function sharePhotos(photoList) {
   if (navigator.share) {
@@ -2736,6 +2876,13 @@ document.getElementById('tbBatchTag').addEventListener('click', () => {
   exitSelectMode();
   showToast(`🏷 已为 ${selectedPhotos.size} 张照片添加标签「${t}」`);
   refreshAllViews();
+});
+
+document.getElementById('tbBatchAi').addEventListener('click', () => {
+  if (!selectMode || selectedPhotos.size === 0) return;
+  const selected = Array.from(selectedPhotos).map(id => photos.find(p => p.id === id)).filter(Boolean);
+  exitSelectMode();
+  batchAiScan(selected);
 });
 
 document.getElementById('tbDownload').addEventListener('click', () => {
@@ -3662,7 +3809,7 @@ function renderCategoryView() {
 // ═══════════════════════════════════
 function renderMap() {
   const byLoc = {};
-  photos.forEach(p => {
+  photos.filter(p => !p.deleted && !p.hidden).forEach(p => {
     const key = p.location;
     if (!byLoc[key]) byLoc[key] = { photos:[], lat:p.lat, lng:p.lng };
     byLoc[key].photos.push(p);
@@ -3687,10 +3834,27 @@ function renderMap() {
      .addTo(window._leafletMap);
   }
 
-  if (window._leafletMarkers) {
-    window._leafletMarkers.forEach(m => window._leafletMap.removeLayer(m));
+  // 清除旧的聚类层
+  if (window._clusterGroup) {
+    window._leafletMap.removeLayer(window._clusterGroup);
   }
-  window._leafletMarkers = [];
+  window._clusterGroup = L.markerClusterGroup({
+    maxClusterRadius: 50,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true,
+    iconCreateFunction: function(cluster) {
+      const count = cluster.getChildCount();
+      let size = 'small';
+      if (count >= 10) size = 'medium';
+      if (count >= 30) size = 'large';
+      return L.divIcon({
+        html: `<div>${count}</div>`,
+        className: `marker-cluster marker-cluster-${size}`,
+        iconSize: L.point(44, 44)
+      });
+    }
+  });
 
   const bounds = [];
   Object.entries(byLoc).forEach(([name, data]) => {
@@ -3709,7 +3873,7 @@ function renderMap() {
       popupAnchor: [0, -42]
     });
 
-    const marker = L.marker([data.lat, data.lng], { icon }).addTo(window._leafletMap);
+    const marker = L.marker([data.lat, data.lng], { icon });
 
     const popupContent = `
       <div class="map-popup">
@@ -3744,9 +3908,11 @@ function renderMap() {
       }
     });
 
-    window._leafletMarkers.push(marker);
+    window._clusterGroup.addLayer(marker);
     bounds.push([data.lat, data.lng]);
   });
+
+  window._leafletMap.addLayer(window._clusterGroup);
 
   if (bounds.length > 0) {
     window._leafletMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
@@ -4036,6 +4202,27 @@ lbTags.addEventListener('pointerdown', e => {
   if (tag) addRipple(e, tag, false);
   const addBtn = e.target.closest('#lbTagAdd');
   if (addBtn) addRipple(e, addBtn, false);
+});
+
+// 长按标签显示删除按钮（手机端）
+let tagLongPress = null;
+lbTags.addEventListener('pointerdown', e => {
+  const tag = e.target.closest('.lb-tag');
+  if (!tag || e.target.closest('.lb-tag-remove')) return;
+  tagLongPress = setTimeout(() => {
+    // 先清除其他标签的删除状态
+    lbTags.querySelectorAll('.lb-tag.show-remove').forEach(t => t.classList.remove('show-remove'));
+    tag.classList.add('show-remove');
+    tagLongPress = null;
+  }, 500);
+});
+lbTags.addEventListener('pointerup', () => { clearTimeout(tagLongPress); tagLongPress = null; });
+lbTags.addEventListener('pointermove', () => { clearTimeout(tagLongPress); tagLongPress = null; });
+// 点击空白处收起删除按钮
+document.addEventListener('pointerdown', e => {
+  if (!e.target.closest('.lb-tag')) {
+    lbTags.querySelectorAll('.lb-tag.show-remove').forEach(t => t.classList.remove('show-remove'));
+  }
 });
 
 function showTagInput(photo) {
@@ -5110,6 +5297,7 @@ function openSettings() {
     <div class="setting-row"><div><div class="s-label">☁️ iCloud Drive 同步</div><div class="s-desc">自动同步私密照片文件夹</div></div><button class="setting-toggle on" onclick="this.classList.toggle('on')"></button></div>
     <div class="setting-section-title">智能</div>
     <div class="setting-row"><div><div class="s-label">🤖 后台 AI 自动分析</div><div class="s-desc">${autoAiEnabled ? '正在后台自动分析新照片' : '仅手动触发 AI 分析'}</div></div><button class="setting-toggle ${autoAiEnabled ? 'on' : ''}" id="autoAiToggle" onclick="toggleAutoAi(this)"></button></div>
+    <div class="setting-row"><div><div class="s-label">🧠 AI 批量分析全部</div><div class="s-desc">已分析 ${aiTaggedCount}/${photos.filter(p=>!p.deleted&&!p.hidden).length} 张 · ${photos.filter(p=>!p.aiTags&&!p.deleted&&!p.hidden).length} 张待分析</div></div><button class="setting-action" onclick="batchAiScan(photos.filter(p=>!p.deleted&&!p.hidden));settingsModal.classList.remove('open');">开始分析</button></div>
     <div class="setting-section-title">数据管理</div>
     <div class="setting-row"><div><div class="s-label">📊 存储分析</div><div class="s-desc">详细存储空间分析与清理建议</div></div><button class="setting-action" onclick="openStorageDashboard();settingsModal.classList.remove('open');">查看</button></div>
     <div class="setting-row"><div><div class="s-label">📊 缓存管理</div><div class="s-desc">缩略图缓存 ${(totalSize*0.15).toFixed(0)} MB</div></div><button class="setting-action" onclick="showToast('🧹 缓存已清除')">清除</button></div>
