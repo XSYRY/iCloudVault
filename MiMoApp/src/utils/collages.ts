@@ -1,7 +1,3 @@
-// ============================================================
-// 拼图制作 — 后期用 @shopify/react-native-skia
-// ============================================================
-
 export interface CollageLayout {
   cols: number;
   rows: number;
@@ -23,4 +19,57 @@ function gridLayout(cols: number, rows: number): CollageLayout {
     }
   }
   return { cols, rows, cells };
+}
+
+export interface CollageRenderOptions {
+  width: number;
+  height: number;
+  gap: number;
+  borderRadius: number;
+  backgroundColor: string;
+}
+
+export const DEFAULT_COLLAGE_OPTIONS: CollageRenderOptions = {
+  width: 1080,
+  height: 1080,
+  gap: 8,
+  borderRadius: 12,
+  backgroundColor: '#000000',
+};
+
+export function computeCellFrames(
+  layout: CollageLayout,
+  photoCount: number,
+  options: CollageRenderOptions,
+): Array<{ x: number; y: number; width: number; height: number }> {
+  const { width, height, gap } = options;
+  const frames: Array<{ x: number; y: number; width: number; height: number }> = [];
+  const count = Math.min(photoCount, layout.cells.length);
+
+  for (let i = 0; i < count; i++) {
+    const cell = layout.cells[i];
+    const cellW = cell.w * width - gap;
+    const cellH = cell.h * height - gap;
+    frames.push({
+      x: cell.x * width + gap / 2,
+      y: cell.y * height + gap / 2,
+      width: cellW,
+      height: cellH,
+    });
+  }
+
+  return frames;
+}
+
+export function computeSkiaDrawCommands(
+  imageUris: string[],
+  layout: CollageLayout,
+  options: CollageRenderOptions,
+): Array<{ uri: string; x: number; y: number; width: number; height: number; borderRadius: number }> {
+  const frames = computeCellFrames(layout, imageUris.length, options);
+  return frames.map((frame, i) => ({
+    uri: imageUris[i],
+    ...frame,
+    borderRadius: options.borderRadius,
+  }));
 }

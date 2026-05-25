@@ -4,7 +4,7 @@
 // ============================================================
 
 // ---- 数据库版本 & 迁移占位 ----
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export interface Migration {
   from: number;
@@ -54,6 +54,9 @@ export const photoSchema = {
     { name: 'duplicate_of_id', type: 'string', isOptional: true },
     { name: 'edits_json',      type: 'string' },
     { name: 'rating',          type: 'number' },
+    { name: 'media_type',      type: 'string' },
+    { name: 'duration',        type: 'number', isOptional: true },
+    { name: 'live_photo_video_uri', type: 'string', isOptional: true },
   ],
 };
 

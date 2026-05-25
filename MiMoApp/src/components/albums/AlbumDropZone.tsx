@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useMd3Theme } from '../../theme';
+import { LineIcon } from '../shared/LineIcon';
 import { useAlbumStore, usePhotoStore, useUiStore } from '../../store';
 import type { Photo, Album } from '../../types';
 
@@ -137,7 +138,7 @@ export function AlbumDropZone({ selectedPhoto, onDropComplete, onCancel }: Album
                 }}
                 onPress={() => handleDrop(album.id)}
               >
-                <Text style={styles.albumEmoji}>{album.isSmart ? '🤖' : '📁'}</Text>
+                <LineIcon name={album.isSmart ? 'sparkles' : 'folder'} size={14} color={highlightedAlbum === album.id ? theme.colors.onPrimaryContainer : theme.colors.onSurface} />
                 <Text
                   style={[
                     styles.albumName,
@@ -220,7 +221,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 4,
   },
-  albumEmoji: { fontSize: 14 },
   albumName: { fontSize: 13, fontWeight: '500', maxWidth: 80 },
   albumCount: { fontSize: 11 },
   cancelBtn: {

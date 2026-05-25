@@ -1,58 +1,54 @@
 import { create } from 'zustand';
-import type { Photo, PhotoFilter, SortMode, Category } from '../types';
-
-// ============================================================
-// photoStore — 照片数据 + 筛选 + 排序 + 选择
-// 后期扩展：替换 actions 中的 mock/memory 实现为 DB 查询
-// ============================================================
+import type { Photo, PhotoFilter, SortMode } from '../types';
+import { getDatabase } from '../db';
+import { logError } from '../utils/logger';
 
 interface PhotoState {
-  // 数据
   photos: Photo[];
-  // 筛选 & 排序
   sortMode: SortMode;
   filter: PhotoFilter;
-  // 多选模式
   selectionMode: boolean;
   selectedIds: Set<string>;
-  // 视图
   isGridReady: boolean;
+  isHydrated: boolean;
 
-  // ---- Actions ----
   setPhotos: (photos: Photo[]) => void;
   addPhotos: (photos: Photo[]) => void;
   updatePhoto: (id: string, patch: Partial<Photo>) => void;
   removePhotos: (ids: string[]) => void;
 
-  // 筛选
   setSortMode: (mode: SortMode) => void;
   setFilter: (patch: Partial<PhotoFilter>) => void;
   resetFilter: () => void;
 
-  // 多选
   toggleSelection: (id: string) => void;
   selectAll: (ids: string[]) => void;
   clearSelection: () => void;
   enterSelection: () => void;
   exitSelection: () => void;
 
-  // 批量操作
   batchFavorite: () => void;
   batchDelete: () => void;
   batchHide: () => void;
 
-  // 计算属性风格的 getter（通过函数调用）
   getFilteredPhotos: () => Photo[];
   getPhotoById: (id: string) => Photo | undefined;
+
+  hydrateFromDb: () => Promise<void>;
 }
+
+const PHOTO_MEMOS_KV_KEY = 'photo-memos';
 
 const defaultFilter: PhotoFilter = {
   category: null,
   isFavorite: null,
+  mediaType: null,
   dateRange: null,
   location: null,
   searchQuery: '',
 };
+
+const dbCatch = (op: string) => (err: unknown) => logError(`photoStore.${op}`, err);
 
 export const usePhotoStore = create<PhotoState>((set, get) => ({
   photos: [],
@@ -61,18 +57,62 @@ export const usePhotoStore = create<PhotoState>((set, get) => ({
   selectionMode: false,
   selectedIds: new Set(),
   isGridReady: false,
+  isHydrated: false,
 
-  setPhotos: (photos) => set({ photos, isGridReady: true }),
-  addPhotos: (photos) => set((s) => ({ photos: [...photos, ...s.photos] })),
-  updatePhoto: (id, patch) =>
+  hydrateFromDb: async () => {
+    try {
+      const db = getDatabase();
+      const [photos, memoMap] = await Promise.all([
+        db.getAllPhotos(),
+        db.kvGet<Record<string, string>>(PHOTO_MEMOS_KV_KEY, {}),
+      ]);
+      const hydratedPhotos = photos.map((photo) => ({
+        ...photo,
+        memo: memoMap[photo.id] ?? photo.memo,
+      }));
+      set({ photos: hydratedPhotos, isGridReady: true, isHydrated: true });
+    } catch (err) {
+      logError('hydrateFromDb', err);
+      set({ isGridReady: true, isHydrated: true });
+    }
+  },
+
+  setPhotos: (photos) => set({ photos, isGridReady: true, isHydrated: true }),
+  addPhotos: (photos) => {
+    set((s) => ({ photos: [...photos, ...s.photos] }));
+    const db = getDatabase();
+    for (const p of photos) {
+      db.insertPhoto(p).catch(dbCatch('insertPhoto'));
+    }
+  },
+  updatePhoto: (id, patch) => {
     set((s) => ({
       photos: s.photos.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-    })),
-  removePhotos: (ids) =>
+    }));
+    getDatabase().updatePhoto(id, patch).catch(dbCatch('updatePhoto'));
+    if (Object.prototype.hasOwnProperty.call(patch, 'memo')) {
+      getDatabase()
+        .kvGet<Record<string, string>>(PHOTO_MEMOS_KV_KEY, {})
+        .then((memoMap) => {
+          const nextMemoMap = { ...memoMap };
+          const nextMemo = patch.memo?.trim();
+          if (nextMemo) {
+            nextMemoMap[id] = nextMemo;
+          } else {
+            delete nextMemoMap[id];
+          }
+          return getDatabase().kvSet(PHOTO_MEMOS_KV_KEY, nextMemoMap);
+        })
+        .catch(dbCatch('updatePhotoMemo'));
+    }
+  },
+  removePhotos: (ids) => {
     set((s) => ({
       photos: s.photos.filter((p) => !ids.includes(p.id)),
       selectedIds: new Set([...s.selectedIds].filter((sid) => !ids.includes(sid))),
-    })),
+    }));
+    getDatabase().deletePhotos(ids).catch(dbCatch('deletePhotos'));
+  },
 
   setSortMode: (mode) => set({ sortMode: mode }),
   setFilter: (patch) => set((s) => ({ filter: { ...s.filter, ...patch } })),
@@ -99,6 +139,10 @@ export const usePhotoStore = create<PhotoState>((set, get) => ({
       selectedIds: new Set(),
       selectionMode: false,
     }));
+    const db = getDatabase();
+    for (const id of selectedIds) {
+      db.updatePhoto(id, { isFavorite: !allFav }).catch(dbCatch('batchFavorite'));
+    }
   },
   batchDelete: () => {
     const { selectedIds } = get();
@@ -109,6 +153,10 @@ export const usePhotoStore = create<PhotoState>((set, get) => ({
       selectedIds: new Set(),
       selectionMode: false,
     }));
+    const db = getDatabase();
+    for (const id of selectedIds) {
+      db.updatePhoto(id, { isDeleted: true, deletedAt: Date.now() }).catch(dbCatch('batchDelete'));
+    }
   },
   batchHide: () => {
     const { selectedIds } = get();
@@ -119,6 +167,10 @@ export const usePhotoStore = create<PhotoState>((set, get) => ({
       selectedIds: new Set(),
       selectionMode: false,
     }));
+    const db = getDatabase();
+    for (const id of selectedIds) {
+      db.updatePhoto(id, { isHidden: true }).catch(dbCatch('batchHide'));
+    }
   },
 
   getFilteredPhotos: () => {
@@ -126,6 +178,7 @@ export const usePhotoStore = create<PhotoState>((set, get) => ({
     let result = photos.filter((p) => !p.isDeleted);
     if (filter.category) result = result.filter((p) => p.aiCategory === filter.category);
     if (filter.isFavorite) result = result.filter((p) => p.isFavorite);
+    if (filter.mediaType) result = result.filter((p) => p.mediaType === filter.mediaType);
     if (filter.location) result = result.filter((p) => p.locationName?.includes(filter.location!));
     if (filter.searchQuery) {
       const q = filter.searchQuery.toLowerCase();
@@ -134,10 +187,10 @@ export const usePhotoStore = create<PhotoState>((set, get) => ({
           p.filename.toLowerCase().includes(q) ||
           (p.aiTags && p.aiTags.some((t) => t.toLowerCase().includes(q))) ||
           p.locationName?.toLowerCase().includes(q) ||
+          p.memo?.toLowerCase().includes(q) ||
           p.dateTaken.includes(q),
       );
     }
-    // 排序
     result.sort((a, b) => {
       switch (sortMode) {
         case 'date-asc': return a.createdAt - b.createdAt;

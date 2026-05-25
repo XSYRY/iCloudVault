@@ -5,9 +5,10 @@ import {
   StyleSheet,
   Pressable,
   Modal,
-  FlatList,
   Dimensions,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMd3Theme } from '../../theme';
 import { usePhotoStore, useAlbumStore, useUiStore } from '../../store';
 import { PhotoCard } from '../photo/PhotoCard';
@@ -20,6 +21,7 @@ interface PhotoPickerDialogProps {
 }
 
 export function PhotoPickerDialog({ visible, albumId, onClose }: PhotoPickerDialogProps) {
+  const insets = useSafeAreaInsets();
   const theme = useMd3Theme();
   const photos = usePhotoStore((s) => s.photos.filter((p) => !p.isDeleted));
   const addToAlbum = useAlbumStore((s) => s.addToAlbum);
@@ -46,7 +48,7 @@ export function PhotoPickerDialog({ visible, albumId, onClose }: PhotoPickerDial
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={[styles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: theme.colors.outlineVariant }]}>
           <Pressable onPress={onClose}>
             <Text style={[styles.headerBtn, { color: theme.colors.primary }]}>取消</Text>
           </Pressable>
@@ -65,10 +67,11 @@ export function PhotoPickerDialog({ visible, albumId, onClose }: PhotoPickerDial
           </Pressable>
         </View>
 
-        <FlatList
+        <FlashList
           data={photos}
           numColumns={3}
           keyExtractor={(item) => item.id}
+          estimatedItemSize={120}
           contentContainerStyle={styles.grid}
           renderItem={({ item }: { item: Photo }) => (
             <PhotoCard
@@ -91,7 +94,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 56,
+
     paddingBottom: 12,
     borderBottomWidth: 0.5,
   },

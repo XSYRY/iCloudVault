@@ -1,76 +1,56 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Modal,
   Pressable,
-  Animated,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
 import { useMd3Theme } from '../../theme';
-
-// ============================================================
-// ImportProgressModal — 导入照片进度弹窗
-// 模拟文件逐个导入，显示进度条和当前文件名
-// 后期接入真实 image-crop-picker 回调
-// ============================================================
-
-export interface ImportFile {
-  name: string;
-  sizeBytes: number;
-}
+import type { ImportProgress } from '../../services/photoImport';
 
 interface ImportProgressModalProps {
   visible: boolean;
-  files: ImportFile[];
-  onComplete: (imported: number) => void;
+  progress: ImportProgress | null;
+  importedCount: number;
+  onComplete: () => void;
   onCancel: () => void;
 }
 
-export function ImportProgressModal({ visible, files, onComplete, onCancel }: ImportProgressModalProps) {
+export function ImportProgressModal({
+  visible,
+  progress,
+  importedCount,
+  onComplete,
+  onCancel,
+}: ImportProgressModalProps) {
   const theme = useMd3Theme();
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isComplete, setIsComplete] = useState(false);
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  const progressSv = useSharedValue(0);
+  const isComplete = progress?.phase === 'complete';
 
   useEffect(() => {
-    if (!visible || files.length === 0) return;
-    setCurrentIndex(0);
-    setIsComplete(false);
-    progressAnim.setValue(0);
+    if (!visible) {
+      progressSv.value = 0;
+      return;
+    }
+    const ratio = progress && progress.total > 0 ? progress.current / progress.total : 0;
+    progressSv.value = withTiming(ratio, { duration: 200 });
+  }, [progress, visible, progressSv]);
 
-    const totalTime = Math.min(files.length * 400, 8000); // max 8 seconds for demo
-    const stepTime = totalTime / files.length;
-
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => {
-        const next = prev + 1;
-        if (next >= files.length) {
-          clearInterval(timer);
-          setIsComplete(true);
-          onComplete(files.length);
-          return files.length;
-        }
-        return next;
-      });
-    }, stepTime);
-
-    return () => clearInterval(timer);
-  }, [visible, files.length]);
-
-  useEffect(() => {
-    Animated.timing(progressAnim, {
-      toValue: files.length > 0 ? currentIndex / files.length : 0,
-      duration: 200,
-      useNativeDriver: false,
-    }).start();
-  }, [currentIndex, files.length]);
-
-  const progress = files.length > 0 ? currentIndex / files.length : 0;
-  const currentFile = files[currentIndex] || files[files.length - 1];
-  const totalSize = files.reduce((s, f) => s + f.sizeBytes, 0);
+  const progressStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleX: progressSv.value }],
+  }));
 
   if (!visible) return null;
+
+  const current = progress?.current ?? 0;
+  const total = progress?.total ?? 0;
+  const currentFile = progress?.currentFile ?? '';
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
@@ -83,11 +63,11 @@ export function ImportProgressModal({ visible, files, onComplete, onCancel }: Im
                 导入完成
               </Text>
               <Text style={[styles.doneSub, { color: theme.colors.onSurfaceVariant }]}>
-                成功导入 {files.length} 张照片
+                成功导入 {importedCount} 张照片
               </Text>
               <Pressable
                 style={[styles.doneBtn, { backgroundColor: theme.colors.primary }]}
-                onPress={onCancel}
+                onPress={onComplete}
               >
                 <Text style={[styles.doneBtnText, { color: theme.colors.onPrimary }]}>完成</Text>
               </Pressable>
@@ -99,33 +79,26 @@ export function ImportProgressModal({ visible, files, onComplete, onCancel }: Im
                 正在导入照片
               </Text>
               <Text style={[styles.fileName, { color: theme.colors.onSurfaceVariant }]} numberOfLines={1}>
-                {currentFile?.name || '...'}
+                {currentFile || '...'}
               </Text>
-              <Text style={[styles.counter, { color: theme.colors.onSurfaceVariant }]}>
-                {currentIndex + 1} / {files.length}
-              </Text>
+              {total > 0 && (
+                <Text style={[styles.counter, { color: theme.colors.onSurfaceVariant }]}>
+                  {current} / {total}
+                </Text>
+              )}
 
-              <View style={[styles.progressBar, { backgroundColor: theme.colors.surfaceVariant }]}>
+              <View style={[styles.progressBar, { backgroundColor: theme.colors.outlineVariant }]}>
                 <Animated.View
                   style={[
                     styles.progressFill,
-                    {
-                      backgroundColor: theme.colors.primary,
-                      width: progressAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ['0%', '100%'],
-                      }),
-                    },
+                    { backgroundColor: theme.colors.primary },
+                    progressStyle,
                   ]}
                 />
               </View>
 
-              <Text style={[styles.sizeText, { color: theme.colors.onSurfaceVariant }]}>
-                {formatImportSize(totalSize)}
-              </Text>
-
               <Pressable
-                style={[styles.cancelBtn, { backgroundColor: theme.colors.surfaceVariant }]}
+                style={[styles.cancelBtn, { backgroundColor: theme.colors.surface }]}
                 onPress={onCancel}
               >
                 <Text style={[styles.cancelText, { color: theme.colors.error }]}>取消</Text>
@@ -136,12 +109,6 @@ export function ImportProgressModal({ visible, files, onComplete, onCancel }: Im
       </View>
     </Modal>
   );
-}
-
-function formatImportSize(bytes: number): string {
-  if (bytes > 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
-  if (bytes > 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
 const styles = StyleSheet.create({
@@ -167,10 +134,14 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: 20,
   },
-  progressFill: { height: '100%', borderRadius: 3 },
-  sizeText: { fontSize: 11, marginBottom: 20 },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+    width: '100%',
+    transformOrigin: 'left',
+  },
   cancelBtn: {
     paddingHorizontal: 24,
     paddingVertical: 10,

@@ -1,20 +1,30 @@
-// ============================================================
-// 图片处理工具 — EXIF、缩略图、颜色提取
-// ============================================================
+import { ThumbnailGenerator } from '../services/photoImport/ThumbnailGenerator';
+import { FallbackColorExtractor } from '../services/photoImport/FallbackColorExtractor';
+import type { IThumbnailGenerator, IColorExtractor } from '../services/photoImport/types';
 
-// 从图片 URI 生成缩略图路径
+let _thumbnail: IThumbnailGenerator = new ThumbnailGenerator();
+let _colorExtractor: IColorExtractor = new FallbackColorExtractor();
+
+export function setThumbnailGenerator(gen: IThumbnailGenerator): void {
+  _thumbnail = gen;
+}
+
+export function setColorExtractor(ext: IColorExtractor): void {
+  _colorExtractor = ext;
+}
+
 export function getThumbnailUri(uri: string, size = 256): string {
-  // 后期用 react-native-image-resizer 或 sharp 生成
   return uri.replace(/\.(jpg|png|heic)$/i, `_thumb${size}.$1`);
 }
 
-// 提取主色（快速版，取像素平均值）
-export function extractDominantColor(_uri: string): Promise<string> {
-  // 后期用 react-native-skia 或原生模块
-  return Promise.resolve('#6750A4');
+export async function generateThumbnail(uri: string, maxWidth = 256, maxHeight = 256, quality = 70): Promise<string> {
+  return _thumbnail.generate(uri, maxWidth, maxHeight, quality);
 }
 
-// 图片大小格式化
+export async function extractDominantColor(uri: string): Promise<string> {
+  return _colorExtractor.extract(uri);
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;

@@ -10,7 +10,7 @@ import type { RootStackScreenProps } from '../navigation/types';
 // ============================================================
 
 const PAGES = [
-  { title: '欢迎使用 MiMo', desc: 'AI 智能相册，让你的照片井井有条' },
+  { title: '欢迎使用 Momento', desc: 'AI 智能相册，让你的照片井井有条' },
   { title: '本地 AI 识别', desc: '使用手机算力，照片不离开设备，安全又私密' },
   { title: '智能搜索', desc: '用自然语言搜索照片，比如"去年在海边拍的日落"' },
 ];
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '700', marginBottom: 16, textAlign: 'center' },
   desc: { fontSize: 16, textAlign: 'center', lineHeight: 24, paddingHorizontal: 24 },
   dots: { flexDirection: 'row', gap: 8, marginTop: 40 },
-  dot: { height: 8, borderRadius: 4 },
-  button: { paddingHorizontal: 48, paddingVertical: 16, borderRadius: 28 },
+  dot: { height: 8, borderRadius: 999 },
+  button: { paddingHorizontal: 48, paddingVertical: 16, borderRadius: 999 },
   buttonText: { fontSize: 16, fontWeight: '600' },
 });

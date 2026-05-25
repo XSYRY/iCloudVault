@@ -12,7 +12,7 @@ export function FilterRow() {
   const chips: { key: string; label: string; selected: boolean; onToggle: () => void }[] = [
     {
       key: 'fav',
-      label: '♥ 收藏',
+      label: '收藏',
       selected: filter.isFavorite === true,
       onToggle: () => setFilter({ isFavorite: filter.isFavorite ? null : true }),
     },
@@ -39,6 +39,6 @@ export function FilterRow() {
 }
 
 const styles = StyleSheet.create({
-  row: { maxHeight: 44 },
-  content: { paddingHorizontal: 12, gap: 8, alignItems: 'center' },
+  row: { minHeight: 36 },
+  content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8, gap: 8, alignItems: 'center' },
 });

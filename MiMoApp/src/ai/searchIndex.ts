@@ -7,11 +7,6 @@
 
 import type { Photo } from '../types';
 
-interface IndexEntry {
-  word: string;
-  photoIds: Set<string>;
-}
-
 export class SearchIndex {
   private index = new Map<string, Set<string>>();
   private photoCache = new Map<string, Photo>();

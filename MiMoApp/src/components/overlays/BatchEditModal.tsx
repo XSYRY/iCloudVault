@@ -10,13 +10,9 @@ import {
 } from 'react-native';
 import { useMd3Theme } from '../../theme';
 import { usePhotoStore, useUiStore } from '../../store';
-import { CATEGORY_LABELS, CATEGORY_EMOJI } from '../../utils/constants';
+import { CATEGORY_LABELS, CATEGORY_ICON } from '../../utils/constants';
 import type { Category } from '../../types';
-
-// ============================================================
-// BatchEditModal — 批量编辑多张照片
-// 设置分类、评分、添加标签
-// ============================================================
+import { LineIcon } from '../shared/LineIcon';
 
 interface BatchEditModalProps {
   visible: boolean;
@@ -32,11 +28,10 @@ export function BatchEditModal({ visible, photoIds, onClose }: BatchEditModalPro
   const showToast = useUiStore((s) => s.showToast);
 
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [selectedRating, setSelectedRating] = useState(0);
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [customTag, setCustomTag] = useState('');
 
-  const hasSelection = selectedCategory !== null || selectedRating > 0 || selectedTags.size > 0;
+  const hasSelection = selectedCategory !== null || selectedTags.size > 0;
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) => {
@@ -58,7 +53,6 @@ export function BatchEditModal({ visible, photoIds, onClose }: BatchEditModalPro
     const tags = Array.from(selectedTags);
     const patch: Record<string, any> = {};
     if (selectedCategory) patch.aiCategory = selectedCategory;
-    if (selectedRating > 0) patch.rating = selectedRating;
     if (tags.length > 0) patch.aiTags = tags;
 
     for (const id of photoIds) {
@@ -66,7 +60,6 @@ export function BatchEditModal({ visible, photoIds, onClose }: BatchEditModalPro
     }
     showToast(`已更新 ${photoIds.length} 张照片`, 'success');
     setSelectedCategory(null);
-    setSelectedRating(0);
     setSelectedTags(new Set());
     onClose();
   };
@@ -81,7 +74,6 @@ export function BatchEditModal({ visible, photoIds, onClose }: BatchEditModalPro
           </Text>
 
           <ScrollView showsVerticalScrollIndicator={false} style={styles.body}>
-            {/* 分类选择 */}
             <Text style={[styles.sectionLabel, { color: theme.colors.onSurfaceVariant }]}>分类</Text>
             <View style={styles.chipRow}>
               {(Object.keys(CATEGORY_LABELS) as Category[]).map((cat) => (
@@ -100,7 +92,7 @@ export function BatchEditModal({ visible, photoIds, onClose }: BatchEditModalPro
                     setSelectedCategory(selectedCategory === cat ? null : cat)
                   }
                 >
-                  <Text style={{ fontSize: 14 }}>{CATEGORY_EMOJI[cat]}</Text>
+                  <LineIcon name={CATEGORY_ICON[cat] || 'camera'} size={14} color={theme.colors.onSurfaceVariant} />
                   <Text
                     style={[
                       styles.chipText,
@@ -118,24 +110,6 @@ export function BatchEditModal({ visible, photoIds, onClose }: BatchEditModalPro
               ))}
             </View>
 
-            {/* 评分 */}
-            <Text style={[styles.sectionLabel, { color: theme.colors.onSurfaceVariant }]}>评分</Text>
-            <View style={styles.starRow}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Pressable key={star} onPress={() => setSelectedRating(star === selectedRating ? 0 : star)}>
-                  <Text
-                    style={[
-                      styles.star,
-                      { color: star <= selectedRating ? '#FFB300' : theme.colors.outlineVariant },
-                    ]}
-                  >
-                    {star <= selectedRating ? '★' : '☆'}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {/* 标签 */}
             <Text style={[styles.sectionLabel, { color: theme.colors.onSurfaceVariant }]}>标签</Text>
             <View style={styles.tagInputRow}>
               <TextInput
@@ -207,7 +181,6 @@ export function BatchEditModal({ visible, photoIds, onClose }: BatchEditModalPro
             </View>
           </ScrollView>
 
-          {/* 操作按钮 */}
           <View style={styles.actions}>
             <Pressable
               style={[styles.cancelBtn, { backgroundColor: theme.colors.surfaceVariant }]}
@@ -281,8 +254,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   chipText: { fontSize: 13, fontWeight: '500' },
-  starRow: { flexDirection: 'row', gap: 6, marginBottom: 8 },
-  star: { fontSize: 32 },
   tagInputRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   tagInput: {
     flex: 1,

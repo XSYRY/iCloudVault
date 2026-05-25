@@ -1,24 +1,27 @@
 import { create } from 'zustand';
 import type { AppSettings, ThemeName } from '../types';
 
-// ============================================================
-// settingsStore — 持久化应用设置
-// 使用 MMKV 作为后端（后期替换 AsyncStorage → react-native-mmkv）
-// 接口设计：settingsStore 只暴露 get/set，不关心存储后端
-// ============================================================
-
 const STORAGE_KEY = 'mimo-settings';
 
+import { MMKV } from 'react-native-mmkv';
+
+let mmkvInstance: MMKV | null = null;
+function getMMKV(): MMKV {
+  if (!mmkvInstance) {
+    mmkvInstance = new MMKV({ id: STORAGE_KEY });
+  }
+  return mmkvInstance;
+}
+
 interface SettingsState extends AppSettings {
-  // 水合状态
   isHydrated: boolean;
 
-  // ---- Actions ----
   loadSettings: () => Promise<void>;
   persistSettings: () => Promise<void>;
 
   setTheme: (theme: ThemeName) => void;
   setGridColumns: (cols: number) => void;
+  setMasonryEnabled: (enabled: boolean) => void;
   setPin: (code: string | null) => void;
   setPinEnabled: (enabled: boolean) => void;
   setBiometricEnabled: (enabled: boolean) => void;
@@ -28,13 +31,13 @@ interface SettingsState extends AppSettings {
   clearSearchHistory: () => void;
   setLastImportTimestamp: (ts: number) => void;
 
-  // 批量更新（一次性改多个设置）
   updateSettings: (patch: Partial<AppSettings>) => void;
 }
 
 const defaults: AppSettings = {
   theme: 'dynamic',
   gridColumns: 3,
+  masonryEnabled: true,
   pinEnabled: false,
   pinCode: null,
   biometricEnabled: false,
@@ -50,17 +53,28 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   loadSettings: async () => {
     try {
-      // 后期替换为 MMKV: const raw = mmkv.getString(STORAGE_KEY);
-      // RN 无内建持久化存储，当前使用内存默认值
-      set({ isHydrated: true });
+      const mmkv = getMMKV();
+      const raw = mmkv.getString(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<AppSettings>;
+        set({ ...saved, isHydrated: true });
+      } else {
+        set({ isHydrated: true });
+      }
     } catch {
       set({ isHydrated: true });
     }
   },
 
   persistSettings: async () => {
-    // 后期替换为 MMKV: mmkv.set(STORAGE_KEY, JSON.stringify(settings));
-    // 当前：不持久化（Phase 1 使用内存存储）
+    try {
+      const { isHydrated, loadSettings, persistSettings, setTheme, setGridColumns,
+        setPin, setPinEnabled, setBiometricEnabled, setShowFabLabels,
+        setOnboardingComplete, addSearchHistory, clearSearchHistory,
+        setLastImportTimestamp, updateSettings, ...settings } = get();
+      const mmkv = getMMKV();
+      mmkv.set(STORAGE_KEY, JSON.stringify(settings));
+    } catch {}
   },
 
   setTheme: (theme) => {
@@ -69,6 +83,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setGridColumns: (cols) => {
     set({ gridColumns: cols });
+    get().persistSettings();
+  },
+  setMasonryEnabled: (enabled) => {
+    set({ masonryEnabled: enabled });
     get().persistSettings();
   },
   setPin: (code) => {

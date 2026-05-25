@@ -1,11 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, type ViewStyle } from 'react-native';
 
-// ============================================================
-// NotificationBadge — 通知徽章
-// 用于标签栏、FAB、设置图标等位置，
-// 显示新导入数/AI完成数/存储告警等
-// ============================================================
+import { useAppTheme } from '../../theme';
 
 interface NotificationBadgeProps {
   count: number;
@@ -21,11 +17,13 @@ export function NotificationBadge({
   count,
   maxCount = 99,
   visible = true,
-  color = '#B3261E',
+  color,
   size = 'medium',
   style,
   pulse = false,
 }: NotificationBadgeProps) {
+  const { md3Theme: theme } = useAppTheme();
+  const defaultColor = theme.colors.error;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -62,7 +60,7 @@ export function NotificationBadge({
           {
             width: dotSize,
             height: dotSize,
-            backgroundColor: color,
+            backgroundColor: color ?? defaultColor,
             transform: [{ scale: pulseAnim }],
           },
           style,
@@ -78,7 +76,7 @@ export function NotificationBadge({
       style={[
         styles.badge,
         {
-          backgroundColor: color,
+          backgroundColor: color ?? defaultColor,
           minWidth,
           paddingHorizontal: paddingH,
           paddingVertical: paddingV,
@@ -88,7 +86,7 @@ export function NotificationBadge({
         style,
       ]}
     >
-      <Text style={[styles.text, { fontSize }]}>{displayText}</Text>
+      <Text style={[styles.text, { fontSize, color: theme.colors.surfaceContainerLowest }]}>{displayText}</Text>
     </Animated.View>
   );
 }
@@ -123,7 +121,6 @@ const styles = StyleSheet.create({
     borderRadius: 99,
   },
   text: {
-    color: '#fff',
     fontWeight: '700',
     textAlign: 'center',
   },

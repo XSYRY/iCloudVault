@@ -113,6 +113,13 @@ export function SettingsScreen({ navigation }: RootStackScreenProps<'Settings'>)
 
         {/* 显示 */}
         <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>显示</Text>
+        <SettingRow theme={theme} title="瀑布流布局" subtitle="照片按原始比例交错排列">
+          <Switch
+            value={settings.masonryEnabled}
+            onValueChange={settings.setMasonryEnabled}
+            trackColor={{ true: theme.colors.primary }}
+          />
+        </SettingRow>
         <SettingRow theme={theme} title="FAB 标签" subtitle="浮动按钮显示文字">
           <Switch
             value={settings.showFabLabels}
@@ -136,7 +143,7 @@ export function SettingsScreen({ navigation }: RootStackScreenProps<'Settings'>)
 
         {/* 关于 */}
         <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>关于</Text>
-        <SettingRow theme={theme} title="MiMo 相册" subtitle="AI 智能相册 · 隐私优先">
+        <SettingRow theme={theme} title="Momento 相册" subtitle="AI 智能相册 · 隐私优先">
           <Text style={[styles.version, { color: theme.colors.onSurfaceVariant }]}>v{APP_VERSION}</Text>
         </SettingRow>
       </ScrollView>
@@ -186,7 +193,7 @@ const styles = StyleSheet.create({
   body: { padding: 16, paddingBottom: 80 },
   sectionTitle: { fontSize: 13, fontWeight: '600', marginBottom: 10, marginTop: 20 },
   themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  themeChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  themeChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 },
   themeChipText: { fontSize: 13, fontWeight: '600' },
   gridRow: { flexDirection: 'row', gap: 12 },
   gridChip: {

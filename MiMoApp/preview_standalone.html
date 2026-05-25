@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6750A4">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>MiMo 相册 - UI 预览 (独立版本)</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #FFFBFE;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      background: #FFFBFE;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    }
+
+    .header {
+      background: linear-gradient(135deg, #6750A4 0%, #7A5FA0 100%);
+      padding: 20px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .header-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.2s;
+    }
+
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.05);
+    }
+
+    .search-bar {
+      background: #E7E0EC;
+      margin: 16px;
+      padding: 12px 16px;
+      border-radius: 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .search-icon {
+      font-size: 16px;
+      opacity: 0.6;
+    }
+
+    .search-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-size: 14px;
+      color: #1C1B1F;
+      outline: none;
+    }
+
+    .search-input::placeholder {
+      color: #49454F;
+      opacity: 0.7;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      padding: 0 16px 16px;
+      overflow-x: auto;
+    }
+
+    .filter-btn {
+      padding: 8px 16px;
+      background: #E7E0EC;
+      border: none;
+      border-radius: 20px;
+      font-size: 13px;
+      color: #49454F;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .filter-btn.active {
+      background: #6750A4;
+      color: white;
+    }
+
+    .filter-btn:hover {
+      background: #D0BCFF;
+      color: #1C1B1F;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      padding: 0 2px;
+    }
+
+    .photo-item {
+      aspect-ratio: 1;
+      background: #E7E0EC;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .photo-item:hover {
+      transform: scale(1.02);
+      z-index: 10;
+    }
+
+    .photo-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .photo-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 8px;
+      background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+      color: white;
+      font-size: 10px;
+    }
+
+    .favorite-badge {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      font-size: 14px;
+    }
+
+    .tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      background: #E7E0EC;
+      border-top: 1px solid #CAC4D0;
+      padding: 8px 16px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      display: flex;
+      justify-content: space-around;
+    }
+
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 16px;
+      border-radius: 16px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-item.active {
+      background: white;
+      box-shadow: 0 4px 12px rgba(103, 80, 164, 0.2);
+    }
+
+    .tab-icon {
+      font-size: 24px;
+      opacity: 0.6;
+    }
+
+    .tab-item.active .tab-icon {
+      opacity: 1;
+    }
+
+    .tab-label {
+      font-size: 11px;
+      color: #49454F;
+      font-weight: 500;
+    }
+
+    .tab-item.active .tab-label {
+      color: #6750A4;
+    }
+
+    .fab {
+      position: fixed;
+      bottom: 100px;
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: #EADDFF;
+      border: none;
+      box-shadow: 0 6px 20px rgba(103, 80, 164, 0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: #21005D;
+      transition: all 0.3s;
+      z-index: 100;
+    }
+
+    .fab:hover {
+      transform: scale(1.1);
+      box-shadow: 0 8px 24px rgba(103, 80, 164, 0.4);
+    }
+
+    .fab.open {
+      background: #6750A4;
+      color: white;
+      border-radius: 28px;
+      width: 140px;
+      height: 56px;
+    }
+
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      background: #6750A4;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 24px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(103, 80, 164, 0.3);
+      transition: all 0.2s;
+    }
+
+    .theme-toggle:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(103, 80, 164, 0.4);
+    }
+
+    .lightbox {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 1000;
+      flex-direction: column;
+    }
+
+    .lightbox.active {
+      display: flex;
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: white;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    .lightbox-image {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+    }
+
+    .lightbox-image img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .lightbox-footer {
+      background: rgba(28, 27, 31, 0.95);
+      padding: 20px;
+      text-align: center;
+    }
+
+    .lightbox-date {
+      color: #E6E0E9;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .lightbox-meta {
+      color: rgba(230, 224, 233, 0.5);
+      font-size: 11px;
+      margin-bottom: 12px;
+    }
+
+    .lightbox-actions {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .lightbox-btn {
+      padding: 10px 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 20px;
+      color: #E6E0E9;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .lightbox-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    body.dark-mode {
+      background: #1C1B1F;
+    }
+
+    body.dark-mode .container {
+      background: #1C1B1F;
+    }
+
+    body.dark-mode .search-bar {
+      background: #49454F;
+    }
+
+    body.dark-mode .search-input {
+      color: #E6E1E5;
+    }
+
+    body.dark-mode .filter-btn {
+      background: #49454F;
+      color: #E6E1E5;
+    }
+
+    body.dark-mode .photo-item {
+      background: #49454F;
+    }
+
+    body.dark-mode .tab-bar {
+      background: #211F26;
+      border-color: #49454F;
+    }
+
+    body.dark-mode .tab-label {
+      color: #CAC4D0;
+    }
+
+    body.dark-mode .tab-item.active {
+      background: #2B2930;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 0;
+      }
+
+      .container {
+        border-radius: 0;
+        min-height: 100vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" onclick="toggleTheme()">
+    🌙 切换主题
+  </button>
+
+  <div class="container">
+    <div class="header">
+      <h1 class="header-title">📷 MiMo 相册</h1>
+      <div class="header-actions">
+        <button class="header-btn">🔍</button>
+        <button class="header-btn">⚙️</button>
+      </div>
+    </div>
+
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" class="search-input" placeholder="搜索照片...">
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active">全部</button>
+      <button class="filter-btn">收藏</button>
+      <button class="filter-btn">人物</button>
+      <button class="filter-btn">地点</button>
+      <button class="filter-btn">最近</button>
+      <button class="filter-btn">视频</button>
+    </div>
+
+    <div class="photo-grid" id="photoGrid"></div>
+
+    <div class="tab-bar">
+      <button class="tab-item active">
+        <span class="tab-icon">🖼️</span>
+        <span class="tab-label">照片</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon">👤</span>
+        <span class="tab-label">人物</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon">📁</span>
+        <span class="tab-label">相册</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon">🔍</span>
+        <span class="tab-label">搜索</span>
+      </button>
+      <button class="tab-item">
+        <span class="tab-icon">⚙️</span>
+        <span class="tab-label">设置</span>
+      </button>
+    </div>
+  </div>
+
+  <button class="fab" id="fab">+</button>
+
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+    <div class="lightbox-image">
+      <img id="lightboxImage" src="" alt="">
+    </div>
+    <div class="lightbox-footer">
+      <p class="lightbox-date" id="lightboxDate">2024年1月15日</p>
+      <p class="lightbox-meta" id="lightboxMeta">4032 × 3024 · 3.2 MB</p>
+      <div class="lightbox-actions">
+        <button class="lightbox-btn">✏️ 编辑</button>
+        <button class="lightbox-btn">❤️ 收藏</button>
+        <button class="lightbox-btn">↗️ 分享</button>
+        <button class="lightbox-btn">🗑️ 删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const samplePhotos = [
+      { id: 1, url: 'https://picsum.photos/400/400?random=1', date: '2024年1月15日', name: 'IMG_001.jpg', size: '3.2 MB' },
+      { id: 2, url: 'https://picsum.photos/400/400?random=2', date: '2024年1月14日', name: 'IMG_002.jpg', size: '2.8 MB' },
+      { id: 3, url: 'https://picsum.photos/400/400?random=3', date: '2024年1月13日', name: 'IMG_003.jpg', size: '4.1 MB' },
+      { id: 4, url: 'https://picsum.photos/400/400?random=4', date: '2024年1月12日', name: 'IMG_004.jpg', size: '2.5 MB' },
+      { id: 5, url: 'https://picsum.photos/400/400?random=5', date: '2024年1月11日', name: 'IMG_005.jpg', size: '3.8 MB' },
+      { id: 6, url: 'https://picsum.photos/400/400?random=6', date: '2024年1月10日', name: 'IMG_006.jpg', size: '2.9 MB' },
+      { id: 7, url: 'https://picsum.photos/400/400?random=7', date: '2024年1月9日', name: 'IMG_007.jpg', size: '3.5 MB', favorite: true },
+      { id: 8, url: 'https://picsum.photos/400/400?random=8', date: '2024年1月8日', name: 'IMG_008.jpg', size: '4.0 MB' },
+      { id: 9, url: 'https://picsum.photos/400/400?random=9', date: '2024年1月7日', name: 'IMG_009.jpg', size: '2.7 MB' },
+    ];
+
+    function loadPhotos() {
+      const grid = document.getElementById('photoGrid');
+      grid.innerHTML = samplePhotos.map(photo => `
+        <div class="photo-item" onclick="openLightbox(${photo.id})">
+          <img src="${photo.url}" alt="${photo.name}" loading="lazy">
+          ${photo.favorite ? '<span class="favorite-badge">❤️</span>' : ''}
+          <div class="photo-overlay">
+            <div>${photo.name}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openLightbox(id) {
+      const photo = samplePhotos.find(p => p.id === id);
+      if (photo) {
+        document.getElementById('lightboxImage').src = photo.url;
+        document.getElementById('lightboxDate').textContent = photo.date;
+        document.getElementById('lightboxMeta').textContent = `4032 × 3024 · ${photo.size}`;
+        document.getElementById('lightbox').classList.add('active');
+      }
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('active');
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('dark-mode');
+      const btn = document.querySelector('.theme-toggle');
+      if (document.body.classList.contains('dark-mode')) {
+        btn.textContent = '☀️ 切换主题';
+      } else {
+        btn.textContent = '🌙 切换主题';
+      }
+    }
+
+    document.getElementById('fab').addEventListener('click', function() {
+      this.classList.toggle('open');
+      if (this.classList.contains('open')) {
+        this.textContent = '✕ 取消';
+      } else {
+        this.textContent = '+';
+      }
+    });
+
+    loadPhotos();
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeLightbox();
+      }
+    });
+
+    document.querySelectorAll('.tab-item').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

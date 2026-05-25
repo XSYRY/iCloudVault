@@ -8,6 +8,7 @@ import {
   ScrollView,
   Switch,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMd3Theme } from '../../theme';
 import { useUiStore, useSettingsStore } from '../../store';
 import { THEME_NAMES, THEME_LABELS, GRID } from '../../utils/constants';
@@ -15,6 +16,16 @@ import { APP_VERSION } from '../../utils/constants';
 import type { ThemeName } from '../../types';
 
 export function SettingsModal() {
+  const insets = useSafeAreaInsets();
+  const isVisible = useUiStore((s) => s.isSettingsModalVisible);
+
+  if (!isVisible) return null;
+
+  return <SettingsModalContent />;
+}
+
+function SettingsModalContent() {
+  const insets = useSafeAreaInsets();
   const theme = useMd3Theme();
   const isVisible = useUiStore((s) => s.isSettingsModalVisible);
   const setVisible = useUiStore((s) => s.setSettingsModalVisible);
@@ -28,7 +39,7 @@ export function SettingsModal() {
       onRequestClose={() => setVisible(false)}
     >
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={[styles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: theme.colors.outlineVariant }]}>
           <Pressable onPress={() => setVisible(false)}>
             <Text style={[styles.closeBtn, { color: theme.colors.primary }]}>完成</Text>
           </Pressable>
@@ -157,7 +168,7 @@ export function SettingsModal() {
           <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>关于</Text>
           <View style={[styles.row, { backgroundColor: theme.colors.surfaceVariant }]}>
             <View style={styles.rowLeft}>
-              <Text style={[styles.rowTitle, { color: theme.colors.onSurface }]}>MiMo 相册</Text>
+              <Text style={[styles.rowTitle, { color: theme.colors.onSurface }]}>Momento 相册</Text>
               <Text style={[styles.rowSub, { color: theme.colors.onSurfaceVariant }]}>
                 AI 智能相册 · 隐私优先
               </Text>
@@ -177,7 +188,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 56,
+
     paddingBottom: 12,
     borderBottomWidth: 0.5,
   },

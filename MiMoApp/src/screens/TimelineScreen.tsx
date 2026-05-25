@@ -1,5 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
-import { View, FlatList, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useMd3Theme } from '../theme';
 import { usePhotosGroupedByMonth } from '../hooks/usePhotos';
 import type { TabScreenProps } from '../navigation/types';
@@ -13,7 +14,7 @@ type TimelineItem =
   | { type: 'header'; month: string; count: number }
   | { type: 'row'; photos: Photo[] };
 
-export function TimelineScreen({ navigation }: TabScreenProps<'TimelineTab'>) {
+export function TimelineScreen({ navigation }: TabScreenProps<'PhotosTab'>) {
   const theme = useMd3Theme();
   const grouped = usePhotosGroupedByMonth();
   const screenWidth = Dimensions.get('window').width;
@@ -53,44 +54,46 @@ export function TimelineScreen({ navigation }: TabScreenProps<'TimelineTab'>) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <Toolbar title="时间线" />
-        <EmptyState icon="📅" title="还没有照片" subtitle="导入照片后按时间线浏览" />
+        <EmptyState icon="calendar" title="还没有照片" subtitle="导入照片后按时间线浏览" />
       </View>
     );
   }
 
+  const renderItem = useCallback(({ item }: { item: TimelineItem }) => {
+    if (item.type === 'header') {
+      return <DateGroupHeader month={item.month} count={item.count} />;
+    }
+    return (
+      <View style={[styles.row, { gap }]}>
+        {item.photos.map((p) => (
+          <PhotoCard
+            key={p.id}
+            photo={p}
+            size={cardSize}
+            onPress={handlePhotoPress}
+          />
+        ))}
+        {item.photos.length < cols &&
+          Array.from({ length: cols - item.photos.length }).map((_, i) => (
+            <View key={`ph-${i}`} style={{ width: cardSize, height: cardSize }} />
+          ))}
+      </View>
+    );
+  }, [cardSize, cols, gap, handlePhotoPress]);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Toolbar title="时间线" />
-      <FlatList
+      <FlashList
         data={flatData}
         keyExtractor={(item, idx) =>
           item.type === 'header' ? `h-${item.month}` : `r-${idx}`
         }
         stickyHeaderIndices={stickyIndices}
+        estimatedItemSize={120}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => {
-          if (item.type === 'header') {
-            return <DateGroupHeader month={item.month} count={item.count} />;
-          }
-          return (
-            <View style={[styles.row, { gap }]}>
-              {item.photos.map((p) => (
-                <PhotoCard
-                  key={p.id}
-                  photo={p}
-                  size={cardSize}
-                  onPress={handlePhotoPress}
-                />
-              ))}
-              {/* 填充空位保持左对齐 */}
-              {item.photos.length < cols &&
-                Array.from({ length: cols - item.photos.length }).map((_, i) => (
-                  <View key={`ph-${i}`} style={{ width: cardSize, height: cardSize }} />
-                ))}
-            </View>
-          );
-        }}
+        renderItem={renderItem}
       />
     </View>
   );

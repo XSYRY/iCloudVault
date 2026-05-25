@@ -2,9 +2,11 @@
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
     "types": ["jest"],
+    "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "react-native-amap3d": ["src/types/react-native-amap3d"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],

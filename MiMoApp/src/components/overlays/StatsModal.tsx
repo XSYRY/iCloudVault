@@ -1,13 +1,25 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, ScrollView } from 'react-native';
-import { useMd3Theme } from '../../theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppTheme } from '../../theme';
 import { useUiStore, usePhotoStore } from '../../store';
 import { formatFileSize } from '../../utils/image';
-import { CATEGORY_LABELS, CATEGORY_EMOJI } from '../../utils/constants';
+import { CATEGORY_LABELS, CATEGORY_ICON } from '../../utils/constants';
 import type { Category } from '../../types';
+import { LineIcon } from '../shared/LineIcon';
 
 export function StatsModal() {
-  const theme = useMd3Theme();
+  const insets = useSafeAreaInsets();
+  const isVisible = useUiStore((s) => s.isStatsModalVisible);
+
+  if (!isVisible) return null;
+
+  return <StatsModalContent />;
+}
+
+function StatsModalContent() {
+  const insets = useSafeAreaInsets();
+  const { md3Theme: theme } = useAppTheme();
   const isVisible = useUiStore((s) => s.isStatsModalVisible);
   const setVisible = useUiStore((s) => s.setStatsModalVisible);
   const photos = usePhotoStore((s) => s.photos);
@@ -48,7 +60,7 @@ export function StatsModal() {
       onRequestClose={() => setVisible(false)}
     >
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={[styles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: theme.colors.outlineVariant }]}>
           <Pressable onPress={() => setVisible(false)}>
             <Text style={[styles.closeBtn, { color: theme.colors.primary }]}>关闭</Text>
           </Pressable>
@@ -77,13 +89,13 @@ export function StatsModal() {
               theme={theme}
               label="已收藏"
               value={stats.favCount.toString()}
-              color="#E91E63"
+              color={theme.colors.error}
             />
             <StatCard
               theme={theme}
               label="已AI分析"
               value={`${stats.aiProcessedCount}/${stats.total}`}
-              color="#4CAF50"
+              color={theme.colors.tertiary}
             />
           </View>
 
@@ -93,7 +105,7 @@ export function StatsModal() {
             .sort((a, b) => b[1] - a[1])
             .map(([cat, count]) => (
               <View key={cat} style={styles.catRow}>
-                <Text style={styles.catEmoji}>{CATEGORY_EMOJI[cat] || '📷'}</Text>
+                <LineIcon name={CATEGORY_ICON[cat] || 'camera'} size={16} color={theme.colors.onSurfaceVariant} />
                 <Text style={[styles.catLabel, { color: theme.colors.onSurface }]}>
                   {CATEGORY_LABELS[cat] || cat}
                 </Text>
@@ -154,7 +166,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 56,
+
     paddingBottom: 12,
     borderBottomWidth: 0.5,
   },
@@ -164,8 +176,7 @@ const styles = StyleSheet.create({
   cardRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginTop: 16, marginBottom: 12 },
   catRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  catEmoji: { fontSize: 16, marginRight: 8 },
-  catLabel: { fontSize: 14, width: 50 },
+  catLabel: { fontSize: 14, width: 50, marginLeft: 8 },
   catBar: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden', marginHorizontal: 8 },
   catBarFill: { height: '100%', borderRadius: 3 },
   catCount: { fontSize: 13, fontWeight: '600', width: 32, textAlign: 'right' },

@@ -1,15 +1,16 @@
 import React, { useMemo, useCallback } from 'react';
 import {
   View,
-  FlatList,
   StyleSheet,
   Text,
   Pressable,
   Dimensions,
   Alert,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useMd3Theme } from '../theme';
 import { usePhotoStore, useUiStore } from '../store';
+import { useShallow } from 'zustand/react/shallow';
 import { TRASH } from '../utils/constants';
 import { formatRelative } from '../utils/date';
 import type { TabScreenProps } from '../navigation/types';
@@ -18,9 +19,9 @@ import { PhotoCard } from '../components/photo/PhotoCard';
 import { EmptyState } from '../components/shared/EmptyState';
 import type { Photo } from '../types';
 
-export function TrashScreen({ navigation }: TabScreenProps<'TrashTab'>) {
+export function TrashScreen({ navigation }: TabScreenProps<'PhotosTab'>) {
   const theme = useMd3Theme();
-  const photos = usePhotoStore((s) => s.photos);
+  const deletedPhotos = usePhotoStore(useShallow(s => s.photos.filter(p => p.isDeleted).sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0))));
   const updatePhoto = usePhotoStore((s) => s.updatePhoto);
   const removePhotos = usePhotoStore((s) => s.removePhotos);
   const showToast = useUiStore((s) => s.showToast);
@@ -28,11 +29,6 @@ export function TrashScreen({ navigation }: TabScreenProps<'TrashTab'>) {
   const cols = 3;
   const gap = 2;
   const cardSize = Math.floor((screenWidth - gap * 2 - gap * (cols - 1)) / cols);
-
-  const deletedPhotos = useMemo(
-    () => photos.filter((p) => p.isDeleted).sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0)),
-    [photos],
-  );
 
   const handleRestore = useCallback(
     (photo: Photo) => {
@@ -59,6 +55,16 @@ export function TrashScreen({ navigation }: TabScreenProps<'TrashTab'>) {
     [removePhotos, showToast],
   );
 
+  const handlePress = useCallback(
+    (photoId: string) => {
+      navigation.navigate('Lightbox', {
+        photoId,
+        photoIds: deletedPhotos.map((dp) => dp.id),
+      });
+    },
+    [deletedPhotos, navigation],
+  );
+
   const handleEmptyTrash = useCallback(() => {
     Alert.alert('清空回收站', '将彻底删除回收站内所有照片', [
       { text: '取消', style: 'cancel' },
@@ -82,7 +88,7 @@ export function TrashScreen({ navigation }: TabScreenProps<'TrashTab'>) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <Toolbar title="回收站" />
-        <EmptyState icon="🗑️" title="回收站为空" subtitle={'删除的照片将在 ' + TRASH.AUTO_DELETE_DAYS + ' 天后自动清除'} />
+        <EmptyState icon="trash" title="回收站为空" subtitle={'删除的照片将在 ' + TRASH.AUTO_DELETE_DAYS + ' 天后自动清除'} />
       </View>
     );
   }
@@ -102,9 +108,10 @@ export function TrashScreen({ navigation }: TabScreenProps<'TrashTab'>) {
         title="回收站"
         subtitle={`${deletedPhotos.length} 项 · ${TRASH.AUTO_DELETE_DAYS} 天后自动清除`}
       />
-      <FlatList
+      <FlashList
         data={rows}
         keyExtractor={(_, idx) => `tr-${idx}`}
+        estimatedItemSize={140}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
@@ -125,7 +132,7 @@ export function TrashScreen({ navigation }: TabScreenProps<'TrashTab'>) {
                   <PhotoCard
                     photo={p}
                     size={cardSize}
-                    onPress={() => {}}
+                    onPress={handlePress}
                   />
                   {/* 操作栏 */}
                   <View style={[styles.overlay, { backgroundColor: '#00000099' }]}>
@@ -170,20 +177,25 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 6,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   overlayText: { color: '#fff', fontSize: 10, textAlign: 'center', marginBottom: 4 },
   overlayBtns: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
-  miniBtn: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
+  miniBtn: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
   miniBtnText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   emptyBtn: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    borderWidth: 0,
+    borderRadius: 999,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
     alignSelf: 'center',
     marginVertical: 12,
+    backgroundColor: '#F9DEDC',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
   },
   emptyBtnText: { fontSize: 14, fontWeight: '600' },
 });

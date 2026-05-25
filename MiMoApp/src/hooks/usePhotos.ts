@@ -19,13 +19,16 @@ export function usePhotos(options: UsePhotosOptions = {}) {
   const sortMode = usePhotoStore((s) => s.sortMode);
   const filter = usePhotoStore((s) => s.filter);
 
+  // 解构 options 字段，避免对象引用不稳定导致 useMemo 频繁重新执行
+  const { category: optCategory, favoriteOnly, sort: optSort, limit } = options;
+
   const result = useMemo(() => {
     let list = photos.filter((p) => !p.isDeleted);
 
-    const cat = options.category ?? filter.category;
+    const cat = optCategory ?? filter.category;
     if (cat) list = list.filter((p) => p.aiCategory === cat);
 
-    const fav = options.favoriteOnly ?? filter.isFavorite;
+    const fav = favoriteOnly ?? filter.isFavorite;
     if (fav) list = list.filter((p) => p.isFavorite);
 
     if (filter.searchQuery) {
@@ -35,11 +38,12 @@ export function usePhotos(options: UsePhotosOptions = {}) {
           p.filename.toLowerCase().includes(q) ||
           p.aiTags?.some((t) => t.toLowerCase().includes(q)) ||
           p.locationName?.toLowerCase().includes(q) ||
+          p.memo?.toLowerCase().includes(q) ||
           p.dateTaken.includes(q),
       );
     }
 
-    const s = options.sort ?? sortMode;
+    const s = optSort ?? sortMode;
     list.sort((a, b) => {
       switch (s) {
         case 'date-asc': return a.createdAt - b.createdAt;
@@ -49,8 +53,8 @@ export function usePhotos(options: UsePhotosOptions = {}) {
       }
     });
 
-    return options.limit ? list.slice(0, options.limit) : list;
-  }, [photos, filter, sortMode, options]);
+    return limit ? list.slice(0, limit) : list;
+  }, [photos, filter, sortMode, optCategory, favoriteOnly, optSort, limit]);
 
   return result;
 }

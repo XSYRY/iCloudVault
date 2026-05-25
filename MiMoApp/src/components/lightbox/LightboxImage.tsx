@@ -26,17 +26,21 @@ import { useMd3Theme } from '../../theme';
 // ============================================================
 
 interface LightboxImageProps {
+  id: string;
   uri: string;
   color: string;
   onTap: () => void;
   onRequestClose: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
 }
 
 const MAX_SCALE = 5;
 const DOUBLE_TAP_SCALE = 2.5;
 const SWIPE_CLOSE_THRESHOLD = 0.3;
+const SWIPE_NAV_THRESHOLD = 0.25;
 
-export function LightboxImage({ uri, color, onTap, onRequestClose }: LightboxImageProps) {
+export function LightboxImage({ id, uri, color, onTap, onRequestClose, onPrev, onNext }: LightboxImageProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const theme = useMd3Theme();
 
@@ -118,12 +122,24 @@ export function LightboxImage({ uri, color, onTap, onRequestClose }: LightboxIma
       }
     })
     .onEnd((event) => {
-      if (scale.value <= 1 && Math.abs(event.translationY) > screenHeight * SWIPE_CLOSE_THRESHOLD) {
-        runOnJS(onRequestClose)();
-      } else {
-        translateX.value = withTiming(0, { duration: 200 });
-        translateY.value = withTiming(0, { duration: 200 });
+      if (scale.value <= 1) {
+        if (Math.abs(event.translationY) > screenHeight * SWIPE_CLOSE_THRESHOLD) {
+          runOnJS(onRequestClose)();
+          return;
+        }
+        if (Math.abs(event.translationX) > screenWidth * SWIPE_NAV_THRESHOLD) {
+          if (event.translationX < 0 && onNext) {
+            runOnJS(onNext)();
+          } else if (event.translationX > 0 && onPrev) {
+            runOnJS(onPrev)();
+          }
+          translateX.value = withTiming(0, { duration: 200 });
+          translateY.value = withTiming(0, { duration: 200 });
+          return;
+        }
       }
+      translateX.value = withTiming(0, { duration: 200 });
+      translateY.value = withTiming(0, { duration: 200 });
     });
 
   // ---- 双击手势 ----
@@ -154,7 +170,7 @@ export function LightboxImage({ uri, color, onTap, onRequestClose }: LightboxIma
   return (
     <GestureDetector gesture={allGestures}>
       <Animated.View style={[styles.container, { width: screenWidth, height: screenHeight }]}>
-        <Animated.View style={animatedStyle}>
+        <Animated.View style={animatedStyle} sharedTransitionTag={`photo-${id}`}>
           <Image
             source={{ uri }}
             style={[

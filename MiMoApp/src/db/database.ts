@@ -1,21 +1,12 @@
-// ============================================================
-// Database 门面 — 对外暴露统一的异步 photo/album CRUD
-// 当前用内存 Map 模拟，后期替换为 WatermelonDB 实现
-// 接口稳定不变，实现可整体替换
-// ============================================================
-
 import type { Photo, Album } from '../types';
 
-// ---- 接口定义 ----
 export interface IDatabase {
-  // Photo CRUD
   getAllPhotos(): Promise<Photo[]>;
   getPhotoById(id: string): Promise<Photo | null>;
   insertPhoto(photo: Photo): Promise<void>;
   updatePhoto(id: string, patch: Partial<Photo>): Promise<void>;
   deletePhotos(ids: string[]): Promise<void>;
 
-  // Album CRUD
   getAllAlbums(): Promise<Album[]>;
   getAlbumById(id: string): Promise<Album | null>;
   insertAlbum(album: Album): Promise<void>;
@@ -24,15 +15,12 @@ export interface IDatabase {
   addPhotosToAlbum(albumId: string, photoIds: string[]): Promise<void>;
   removePhotosFromAlbum(albumId: string, photoIds: string[]): Promise<void>;
 
-  // KV 存储（设置、搜索历史等）
   kvGet<T>(key: string, fallback: T): Promise<T>;
   kvSet<T>(key: string, value: T): Promise<void>;
 
-  // 生命周期
   close(): Promise<void>;
 }
 
-// ---- 内存实现（Mock）----
 class MockDatabase implements IDatabase {
   private photos = new Map<string, Photo>();
   private albums = new Map<string, Album>();
@@ -100,17 +88,25 @@ class MockDatabase implements IDatabase {
   }
 }
 
-// ---- 单例 ----
 let _instance: IDatabase | null = null;
 
 export function getDatabase(): IDatabase {
   if (!_instance) {
-    _instance = new MockDatabase();
+    _instance = createDatabase();
   }
   return _instance;
 }
 
-/** 后期切换到 WatermelonDB 时替换此函数内部实现 */
 export function setDatabase(db: IDatabase): void {
   _instance = db;
+}
+
+function createDatabase(): IDatabase {
+  try {
+    require('@nozbe/watermelondb');
+    const { createWatermelonDatabase } = require('./WatermelonDatabase');
+    return createWatermelonDatabase();
+  } catch {
+    return new MockDatabase();
+  }
 }

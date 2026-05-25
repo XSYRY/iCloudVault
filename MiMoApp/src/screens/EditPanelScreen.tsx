@@ -8,7 +8,9 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMd3Theme } from '../theme';
+import { LineIcon } from '../components/shared/LineIcon';
 import { usePhotoStore, useUiStore } from '../store';
 import type { RootStackScreenProps } from '../navigation/types';
 import type { EditState } from '../types';
@@ -21,13 +23,14 @@ import { DrawTab } from '../components/lightbox/EditPanel/DrawTab';
 type EditTab = 'adjust' | 'filter' | 'crop' | 'draw';
 
 const TABS: { key: EditTab; label: string; icon: string }[] = [
-  { key: 'adjust', label: '调整', icon: '⚙️' },
-  { key: 'filter', label: '滤镜', icon: '🎨' },
-  { key: 'crop', label: '裁剪', icon: '✂️' },
-  { key: 'draw', label: '标注', icon: '✏️' },
+  { key: 'adjust', label: '调整', icon: 'sliders' },
+  { key: 'filter', label: '滤镜', icon: 'palette' },
+  { key: 'crop', label: '裁剪', icon: 'crop' },
+  { key: 'draw', label: '标注', icon: 'draw' },
 ];
 
 export function EditPanelScreen({ route, navigation }: RootStackScreenProps<'EditPanel'>) {
+  const insets = useSafeAreaInsets();
   const { photoId } = route.params;
   const theme = useMd3Theme();
   const { width: screenWidth } = useWindowDimensions();
@@ -153,7 +156,7 @@ export function EditPanelScreen({ route, navigation }: RootStackScreenProps<'Edi
             ]}
             onPress={() => setActiveTab(tab.key)}
           >
-            <Text style={styles.tabIcon}>{tab.icon}</Text>
+            <LineIcon name={tab.icon} size={16} color={activeTab === tab.key ? theme.colors.primary : theme.colors.onSurfaceVariant} />
             <Text
               style={[
                 styles.tabLabel,
@@ -215,7 +218,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 56,
+
     paddingBottom: 12,
   },
   headerBtn: { fontSize: 15 },
@@ -236,7 +239,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 2.5,
   },
-  tabIcon: { fontSize: 16, marginBottom: 2 },
   tabLabel: { fontSize: 11, fontWeight: '600' },
   editArea: { flex: 1 },
 });

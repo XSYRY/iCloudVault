@@ -1,24 +1,61 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
 buildscript {
     ext {
-        buildToolsVersion = "36.1.0"
+        buildToolsVersion = "33.0.0"
         minSdkVersion = 24
-        compileSdkVersion = 36
-        targetSdkVersion = 36
-        ndkVersion = "27.1.12297006"
-        kotlinVersion = "2.1.20"
+        compileSdkVersion = 33
+        targetSdkVersion = 33
+
+        // We use NDK 23 which has both M1 support and is the side-by-side NDK version from AGP.
+        ndkVersion = "23.1.7779620"
+        kotlinVersion = "1.8.22"
     }
     repositories {
-        maven { url = "https://maven.aliyun.com/repository/google" }
-        maven { url = "https://maven.aliyun.com/repository/central" }
-        maven { url = "https://maven.aliyun.com/repository/public" }
         google()
         mavenCentral()
     }
     dependencies {
         classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
     }
 }
 
-apply plugin: "com.facebook.react.rootproject"
+subprojects { subproject ->
+    afterEvaluate {
+        if (subproject.hasProperty("android")) {
+            subproject.android {
+                compileSdkVersion rootProject.ext.compileSdkVersion
+                buildToolsVersion rootProject.ext.buildToolsVersion
+                
+                defaultConfig {
+                    minSdkVersion rootProject.ext.minSdkVersion
+                    targetSdkVersion rootProject.ext.targetSdkVersion
+                }
+                
+                compileOptions {
+                    sourceCompatibility "17"
+                    targetCompatibility "17"
+                }
+            }
+        }
+    }
+}
+
+// Final force: Ensure *all* JavaCompile tasks use Java 17
+gradle.projectsEvaluated {
+    rootProject.allprojects { project ->
+        project.tasks.withType(JavaCompile).all { task ->
+            task.sourceCompatibility = "17"
+            task.targetCompatibility = "17"
+        }
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}

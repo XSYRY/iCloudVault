@@ -34,6 +34,9 @@ export interface PhotoRecord {
   duplicateOfId: string | null;
   editsJson: string;
   rating: number;
+  mediaType: string;
+  duration: number | null;
+  livePhotoVideoUri: string | null;
 }
 
 // 序列化：IPhoto → DB record
@@ -53,6 +56,9 @@ export function photoToRecord(photo: IPhoto): PhotoRecord {
     deletedAt: photo.deletedAt ?? null,
     latitude: photo.latitude ?? null,
     longitude: photo.longitude ?? null,
+    mediaType: photo.mediaType,
+    duration: photo.duration ?? null,
+    livePhotoVideoUri: photo.livePhotoVideoUri ?? null,
   };
 }
 
@@ -88,5 +94,8 @@ export function recordToPhoto(rec: PhotoRecord): IPhoto {
     edits: JSON.parse(rec.editsJson),
     versions: [],
     rating: rec.rating,
+    mediaType: (rec.mediaType as IPhoto['mediaType']) || 'photo',
+    duration: rec.duration ?? null,
+    livePhotoVideoUri: rec.livePhotoVideoUri ?? undefined,
   };
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,12 @@ import {
   Pressable,
   Modal,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useMd3Theme } from '../../theme';
 import { usePhotoStore, useUiStore } from '../../store';
 import type { ExifData } from '../../types';
@@ -66,6 +72,27 @@ export function ExifEditor({ visible, photoId, exif, onClose }: ExifEditorProps)
     });
   };
 
+  const sheetTranslateY = useSharedValue(300);
+  const backdropOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      sheetTranslateY.value = withSpring(0, { damping: 20, stiffness: 200, mass: 0.8 });
+      backdropOpacity.value = withTiming(1, { duration: 250 });
+    } else {
+      sheetTranslateY.value = 300;
+      backdropOpacity.value = 0;
+    }
+  }, [visible]);
+
+  const sheetAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: sheetTranslateY.value }],
+  }));
+
+  const backdropAnimStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
   const handleSave = () => {
     if (!hasEdits) return;
     updatePhoto(photoId, { exif: { ...exif, ...edits } });
@@ -75,9 +102,9 @@ export function ExifEditor({ visible, photoId, exif, onClose }: ExifEditorProps)
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={[styles.sheet, { backgroundColor: theme.colors.surface }]}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <Animated.View style={[styles.backdrop, backdropAnimStyle]}>
+        <Animated.View style={[styles.sheet, { backgroundColor: theme.colors.surface }, sheetAnimStyle]}>
           <View style={[styles.handle, { backgroundColor: theme.colors.outlineVariant }]} />
 
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>编辑 EXIF</Text>
@@ -145,8 +172,8 @@ export function ExifEditor({ visible, photoId, exif, onClose }: ExifEditorProps)
               </Text>
             </Pressable>
           </View>
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 }

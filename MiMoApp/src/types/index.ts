@@ -1,5 +1,5 @@
 // ============================================================
-// MiMo 相册 — 核心类型定义
+// Momento 相册 — 核心类型定义
 // 所有模块共享的类型接口，后期修改时优先从这里扩展
 // ============================================================
 
@@ -73,7 +73,7 @@ export interface Photo {
   longitude: number | null;
   locationName: string | null;
   exif: ExifData;
-  color: string;                   // 从图片提取的主色，用于占位背景
+  color: string;
   isFavorite: boolean;
   isHidden: boolean;
   isPinned: boolean;
@@ -82,12 +82,17 @@ export interface Photo {
   aiTags: string[] | null;
   aiCategory: Category | null;
   faceCount: number | null;
-  phash: string | null;            // 感知哈希（去重用）
-  embedding: number[] | null;      // 特征向量（语义搜索用）
-  duplicateOfId: string | null;    // 指向被标记为重复的主照片
+  phash: string | null;
+  embedding: number[] | null;
+  duplicateOfId: string | null;
   edits: EditState;
   versions: EditVersion[];
-  rating: number;                  // 0-5 星
+  rating: number;
+  tags?: string[];
+  memo?: string;
+  mediaType: 'photo' | 'video' | 'live';
+  duration: number | null;
+  livePhotoVideoUri?: string;
 }
 
 // ---- 相册 ----
@@ -157,6 +162,7 @@ export const THEME_LABELS: Record<ThemeName, string> = {
 export interface AppSettings {
   theme: ThemeName;
   gridColumns: number;
+  masonryEnabled: boolean;
   pinEnabled: boolean;
   pinCode: string | null;
   biometricEnabled: boolean;
@@ -174,6 +180,7 @@ export type SortMode = 'date-desc' | 'date-asc' | 'name' | 'size';
 export interface PhotoFilter {
   category: Category | null;
   isFavorite: boolean | null;
+  mediaType: string | null;
   dateRange: { start: string; end: string } | null;
   location: string | null;
   searchQuery: string;
@@ -184,6 +191,7 @@ export type RootStackParamList = {
   Lock: undefined;
   Main: undefined;
   Lightbox: { photoId: string; photoIds: string[] };
+  PhotoDetail: { photoId: string; photoIds: string[] };
   Onboarding: undefined;
   Settings: undefined;
   AlbumDetail: { albumId: string };
@@ -196,24 +204,23 @@ export type RootStackParamList = {
   Collage: { photoIds: string[] };
   VersionHistory: { photoId: string };
   StorageDashboard: undefined;
+  Search: undefined;
   SearchResults: { query: string };
   Compare: { photoId: string; photoIds: string[] };
   FaceGroupDetail: { groupId: string };
+  Tags: undefined;
+  LocationMoments: { location: string; photoIds: string[]; initialPhotoId?: string };
+  StoryViewer: { storyId: string };
+  VideoPlayer: { uri: string; title?: string };
+  LivePhoto: { photoId: string; photoIds: string[] };
 };
 
 export type MainTabParamList = {
-  GridTab: undefined;
-  TimelineTab: undefined;
-  MapTab: undefined;
-  CategoryTab: undefined;
-  TrashTab: undefined;
+  PhotosTab: undefined;
+  AlbumsTab: undefined;
+  MapJourneysTab: undefined;
+  ProfileTab: undefined;
 };
 
-// ---- 手势/Memo 卡片 ----
-export interface MemoryPhoto {
-  id: string;
-  photoId: string;
-  title: string;
-  subtitle: string;
-  date: string;
-}
+export type { MemoryGroup } from '../services/memories';
+export type { BackupMeta } from '../services/backup';

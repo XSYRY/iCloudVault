@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 纯色背景，与 RN 加载页完全一致，无任何形状 -->
+    <item android:drawable="@color/splash_background"/>
+</layer-list>

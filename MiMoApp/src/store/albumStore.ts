@@ -1,16 +1,16 @@
 import { create } from 'zustand';
 import type { Album, SmartAlbumRule } from '../types';
+import { getDatabase } from '../db';
+import { logError } from '../utils/logger';
 
-// ============================================================
-// albumStore — 相册 CRUD + 智能相册规则引擎
-// 后期扩展：替换为 WatermelonDB 查询
-// ============================================================
+const dbCatch = (op: string) => (err: unknown) => logError(`albumStore.${op}`, err);
 
 interface AlbumState {
   albums: Album[];
+  isHydrated: boolean;
 
-  // ---- Actions ----
   setAlbums: (albums: Album[]) => void;
+  hydrateFromDb: () => Promise<void>;
   createAlbum: (name: string, description?: string) => Album;
   createSmartAlbum: (name: string, rules: SmartAlbumRule[], description?: string) => Album;
   updateAlbum: (id: string, patch: Partial<Album>) => void;
@@ -19,7 +19,6 @@ interface AlbumState {
   removeFromAlbum: (albumId: string, photoIds: string[]) => void;
   getAlbumsByPhotoId: (photoId: string) => Album[];
 
-  // 智能相册 — 评估规则是否匹配（后期接入 AI pipeline）
   evaluateSmartRules: (rules: SmartAlbumRule[], photoTags: string[], photoCategory: string) => boolean;
 }
 
@@ -28,8 +27,20 @@ const nextAlbumId = (): string => `album-${Date.now()}-${++albumCounter}`;
 
 export const useAlbumStore = create<AlbumState>((set, get) => ({
   albums: [],
+  isHydrated: false,
 
-  setAlbums: (albums) => set({ albums }),
+  setAlbums: (albums) => set({ albums, isHydrated: true }),
+
+  hydrateFromDb: async () => {
+    try {
+      const db = getDatabase();
+      const albums = await db.getAllAlbums();
+      set({ albums, isHydrated: true });
+    } catch (err) {
+      logError('hydrateFromDb', err);
+      set({ isHydrated: true });
+    }
+  },
 
   createAlbum: (name, description = '') => {
     const album: Album = {
@@ -43,6 +54,7 @@ export const useAlbumStore = create<AlbumState>((set, get) => ({
       sortOrder: get().albums.length,
     };
     set((s) => ({ albums: [...s.albums, album] }));
+    getDatabase().insertAlbum(album).catch(dbCatch('createAlbum'));
     return album;
   },
 
@@ -59,27 +71,34 @@ export const useAlbumStore = create<AlbumState>((set, get) => ({
       sortOrder: get().albums.length,
     };
     set((s) => ({ albums: [...s.albums, album] }));
+    getDatabase().insertAlbum(album).catch(dbCatch('createSmartAlbum'));
     return album;
   },
 
-  updateAlbum: (id, patch) =>
+  updateAlbum: (id, patch) => {
     set((s) => ({
       albums: s.albums.map((a) => (a.id === id ? { ...a, ...patch } : a)),
-    })),
+    }));
+    getDatabase().updateAlbum(id, patch).catch(dbCatch('updateAlbum'));
+  },
 
-  deleteAlbum: (id) =>
-    set((s) => ({ albums: s.albums.filter((a) => a.id !== id) })),
+  deleteAlbum: (id) => {
+    set((s) => ({ albums: s.albums.filter((a) => a.id !== id) }));
+    getDatabase().deleteAlbum(id).catch(dbCatch('deleteAlbum'));
+  },
 
-  addToAlbum: (albumId, photoIds) =>
+  addToAlbum: (albumId, photoIds) => {
     set((s) => ({
       albums: s.albums.map((a) =>
         a.id === albumId
           ? { ...a, photoIds: [...new Set([...a.photoIds, ...photoIds])], photoCount: a.photoCount + photoIds.length }
           : a,
       ),
-    })),
+    }));
+    getDatabase().addPhotosToAlbum(albumId, photoIds).catch(dbCatch('addToAlbum'));
+  },
 
-  removeFromAlbum: (albumId, photoIds) =>
+  removeFromAlbum: (albumId, photoIds) => {
     set((s) => ({
       albums: s.albums.map((a) =>
         a.id === albumId
@@ -90,7 +109,9 @@ export const useAlbumStore = create<AlbumState>((set, get) => ({
             }
           : a,
       ),
-    })),
+    }));
+    getDatabase().removePhotosFromAlbum(albumId, photoIds).catch(dbCatch('removeFromAlbum'));
+  },
 
   getAlbumsByPhotoId: (photoId) => get().albums.filter((a) => a.photoIds.includes(photoId)),
 
@@ -105,8 +126,7 @@ export const useAlbumStore = create<AlbumState>((set, get) => ({
           }
           return false;
         case 'rating':
-          // 期望 rule.value 为数字阈值
-          return false; // 需要 photo 引用 — 后期实现
+          return false;
         default:
           return false;
       }

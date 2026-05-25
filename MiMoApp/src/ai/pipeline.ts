@@ -1,40 +1,38 @@
-// ============================================================
-// AI 处理管线 — 批量分析照片
-// 接口设计：queuePhotos() 入队 → processNext() 逐张调 ML Kit
-// 后期替换：接入真实 ML Kit / TFLite 模型
-// ============================================================
-
-import { useAiStore } from '../store';
+import { useAiStore, usePhotoStore } from '../store';
 import type { AiAnalysisResult, Photo } from '../types';
 
-// ---- AI 处理接口（后期各模块实现此接口）----
 export interface IAiProcessor {
   readonly name: string;
   analyze(photo: Photo): Promise<Partial<AiAnalysisResult>>;
 }
 
-// ---- 管线调度器 ----
 class AiPipeline {
   private queue: string[] = [];
   private running = false;
   private processors: IAiProcessor[] = [];
+  private allPhotos: Photo[] = [];
 
   registerProcessor(processor: IAiProcessor): void {
     this.processors.push(processor);
   }
 
+  getProcessorCount(): number {
+    return this.processors.length;
+  }
+
   async queuePhotos(photos: Photo[]): Promise<void> {
+    this.allPhotos = photos;
     const ids = photos.map((p) => p.id);
     this.queue.push(...ids);
     useAiStore.getState().startPipeline([...this.queue]);
     if (!this.running) {
       this.running = true;
-      this.processQueue(photos);
+      this.processQueue();
     }
   }
 
-  private async processQueue(allPhotos: Photo[]): Promise<void> {
-    const photoMap = new Map(allPhotos.map((p) => [p.id, p]));
+  private async processQueue(): Promise<void> {
+    const photoMap = new Map(this.allPhotos.map((p) => [p.id, p]));
 
     while (this.queue.length > 0) {
       const id = this.queue.shift()!;
@@ -44,13 +42,9 @@ class AiPipeline {
       useAiStore.getState().setCurrentPhoto(id);
 
       try {
-        // 串行调所有 processor，合并结果
         const partials = await Promise.all(
           this.processors.map((proc) =>
-            proc.analyze(photo).catch((err): Partial<AiAnalysisResult> => {
-              console.warn(`[AI] ${proc.name} failed for ${id}:`, err);
-              return {};
-            }),
+            proc.analyze(photo).catch((): Partial<AiAnalysisResult> => ({})),
           ),
         );
 
@@ -70,14 +64,21 @@ class AiPipeline {
           if (p.embedding) result.embedding = p.embedding;
         }
 
-        // 去重
         result.labels = [...new Set(result.labels)];
 
         useAiStore.getState().reportResult(result);
-      } catch (err: any) {
+
+        usePhotoStore.getState().updatePhoto(id, {
+          aiTags: result.labels,
+          aiCategory: result.category,
+          faceCount: result.faceCount,
+          embedding: result.embedding ?? null,
+        });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
         useAiStore.getState().reportError({
           photoId: id,
-          message: err?.message || 'Unknown error',
+          message,
           timestamp: Date.now(),
         });
       }
@@ -94,7 +95,6 @@ class AiPipeline {
   }
 }
 
-// 单例
 let pipeline: AiPipeline | null = null;
 
 export function getAiPipeline(): AiPipeline {

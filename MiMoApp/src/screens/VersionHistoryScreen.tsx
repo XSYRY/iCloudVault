@@ -4,10 +4,11 @@ import {
   Text,
   Image,
   StyleSheet,
-  FlatList,
   Pressable,
   Alert,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMd3Theme } from '../theme';
 import { usePhotoStore, useUiStore } from '../store';
 import { formatRelative } from '../utils/date';
@@ -21,6 +22,7 @@ import { EmptyState } from '../components/shared/EmptyState';
 // ============================================================
 
 export function VersionHistoryScreen({ route, navigation }: RootStackScreenProps<'VersionHistory'>) {
+  const insets = useSafeAreaInsets();
   const { photoId } = route.params;
   const theme = useMd3Theme();
   const photo = usePhotoStore((s) => s.photos.find((p) => p.id === photoId));
@@ -61,7 +63,7 @@ export function VersionHistoryScreen({ route, navigation }: RootStackScreenProps
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: theme.colors.outlineVariant }]}>
         <Pressable onPress={navigation.goBack}>
           <Text style={[styles.closeBtn, { color: theme.colors.primary }]}>关闭</Text>
         </Pressable>
@@ -70,11 +72,12 @@ export function VersionHistoryScreen({ route, navigation }: RootStackScreenProps
       </View>
 
       {versions.length === 0 ? (
-        <EmptyState icon="📜" title="暂无编辑版本" subtitle="编辑照片后会自动保存版本" />
+        <EmptyState icon="file-text" title="暂无编辑版本" subtitle="编辑照片后会自动保存版本" />
       ) : (
-        <FlatList
+        <FlashList
           data={[...versions].reverse()}
           keyExtractor={(item) => item.id}
+          estimatedItemSize={90}
           contentContainerStyle={styles.list}
           renderItem={({ item, index }) => (
             <View
@@ -144,7 +147,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 56,
+
     paddingBottom: 12,
     borderBottomWidth: 0.5,
   },
@@ -159,11 +162,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   latestCard: {
-    borderWidth: 1.5,
-    borderColor: '#6750A4',
+    borderWidth: 0,
+    borderColor: '#2C3E35',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
   },
   thumbWrap: { position: 'relative' },
-  thumb: { width: 64, height: 64, borderRadius: 10 },
+  thumb: { width: 64, height: 64, borderRadius: 16 },
   latestBadge: {
     position: 'absolute',
     top: -4,

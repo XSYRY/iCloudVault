@@ -6,12 +6,14 @@ import {
   ScrollView,
   Pressable,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMd3Theme } from '../theme';
 import { usePhotoStore } from '../store';
 import { formatFileSize } from '../utils/image';
-import { CATEGORY_LABELS, CATEGORY_EMOJI } from '../utils/constants';
+import { CATEGORY_LABELS, CATEGORY_ICON } from '../utils/constants';
 import { Toolbar } from '../components/shared/Toolbar';
 import { EmptyState } from '../components/shared/EmptyState';
+import { LineIcon } from '../components/shared/LineIcon';
 import type { Category } from '../types';
 import type { RootStackScreenProps } from '../navigation/types';
 
@@ -21,6 +23,7 @@ import type { RootStackScreenProps } from '../navigation/types';
 // ============================================================
 
 export function StorageDashboardScreen({ navigation }: RootStackScreenProps<'StorageDashboard'>) {
+  const insets = useSafeAreaInsets();
   const theme = useMd3Theme();
   const photos = usePhotoStore((s) => s.photos);
 
@@ -74,14 +77,14 @@ export function StorageDashboardScreen({ navigation }: RootStackScreenProps<'Sto
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>存储管理</Text>
           <View style={{ width: 48 }} />
         </View>
-        <EmptyState icon="📦" title="暂无数据" subtitle="导入照片后查看存储统计" />
+        <EmptyState icon="storage" title="暂无数据" subtitle="导入照片后查看存储统计" />
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: theme.colors.outlineVariant }]}>
         <Pressable onPress={navigation.goBack}>
           <Text style={[styles.closeBtn, { color: theme.colors.primary }]}>关闭</Text>
         </Pressable>
@@ -139,7 +142,7 @@ export function StorageDashboardScreen({ navigation }: RootStackScreenProps<'Sto
           .sort((a, b) => b[1] - a[1])
           .map(([cat, size]) => (
             <View key={cat} style={styles.catRow}>
-              <Text>{CATEGORY_EMOJI[cat] || '📷'}</Text>
+              <LineIcon name={CATEGORY_ICON[cat] || 'camera'} size={16} color={theme.colors.onSurfaceVariant} />
               <Text style={[styles.catLabel, { color: theme.colors.onSurface }]}>
                 {CATEGORY_LABELS[cat]}
               </Text>
@@ -216,7 +219,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 56,
+
     paddingBottom: 12,
     borderBottomWidth: 0.5,
   },
@@ -225,7 +228,7 @@ const styles = StyleSheet.create({
   body: { flex: 1, padding: 16 },
   overviewCard: {
     padding: 16,
-    borderRadius: 20,
+    borderRadius: 24,
     marginBottom: 16,
   },
   overviewTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },

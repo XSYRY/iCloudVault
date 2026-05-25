@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useMd3Theme } from '../../theme';
+import { LineIcon } from '../shared/LineIcon';
 
 // ============================================================
 // AlbumSortBar — 相册排序/过滤工具栏
@@ -15,10 +16,10 @@ interface AlbumSortBarProps {
 }
 
 const SORT_OPTIONS: { key: AlbumSortKey; label: string; icon: string }[] = [
-  { key: 'recent', label: '最近', icon: '🕐' },
-  { key: 'name', label: '名称', icon: '🔤' },
-  { key: 'count', label: '数量', icon: '🔢' },
-  { key: 'type', label: '类型', icon: '📂' },
+  { key: 'recent', label: '最近', icon: 'clock' },
+  { key: 'name', label: '名称', icon: 'type' },
+  { key: 'count', label: '数量', icon: 'hash' },
+  { key: 'type', label: '类型', icon: 'folder' },
 ];
 
 export function AlbumSortBar({ activeSort, onSortChange }: AlbumSortBarProps) {
@@ -45,7 +46,7 @@ export function AlbumSortBar({ activeSort, onSortChange }: AlbumSortBarProps) {
           ]}
           onPress={() => onSortChange(opt.key)}
         >
-          <Text style={styles.chipIcon}>{opt.icon}</Text>
+          <LineIcon name={opt.icon} size={12} color={activeSort === opt.key ? theme.colors.onSecondaryContainer : theme.colors.onSurfaceVariant} />
           <Text
             style={[
               styles.chipText,
@@ -84,6 +85,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 3,
   },
-  chipIcon: { fontSize: 12 },
   chipText: { fontSize: 12, fontWeight: '500' },
 });

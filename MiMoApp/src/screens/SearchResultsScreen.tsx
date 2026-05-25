@@ -3,12 +3,14 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   Pressable,
   Image,
   useWindowDimensions,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMd3Theme } from '../theme';
+import { LineIcon } from '../components/shared/LineIcon';
 import { usePhotoStore } from '../store';
 import { useSemanticSearch } from '../hooks/useSemanticSearch';
 import { SemanticChips } from '../components/search/SemanticChips';
@@ -18,7 +20,8 @@ import type { RootStackScreenProps } from '../navigation/types';
 import type { Photo } from '../types';
 
 export function SearchResultsScreen({ route, navigation }: RootStackScreenProps<'SearchResults'>) {
-  const { query } = route.params;
+  const insets = useSafeAreaInsets();
+  const { query } = route.params ?? { query: '' };
   const theme = useMd3Theme();
   const { width: screenWidth } = useWindowDimensions();
   const gridColumns = 3;
@@ -36,7 +39,7 @@ export function SearchResultsScreen({ route, navigation }: RootStackScreenProps<
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: theme.colors.outlineVariant }]}>
         <Pressable onPress={() => navigation.goBack()}>
           <Text style={[styles.closeBtn, { color: theme.colors.primary }]}>返回</Text>
         </Pressable>
@@ -61,19 +64,15 @@ export function SearchResultsScreen({ route, navigation }: RootStackScreenProps<
 
       {/* Grid */}
       {results.length === 0 ? (
-        <EmptyState icon="🔍" title="未找到匹配照片" subtitle={`未找到与"${query}"相关的照片`} />
+        <EmptyState icon="search" title="未找到匹配照片" subtitle={`未找到与"${query}"相关的照片`} />
       ) : (
-        <FlatList
+        <FlashList
           data={results}
           keyExtractor={(item) => item.id}
           numColumns={gridColumns}
+          estimatedItemSize={140}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 80 }}
-          getItemLayout={(_, index) => ({
-            length: cardSize,
-            offset: cardSize * Math.floor(index / gridColumns),
-            index,
-          })}
           renderItem={({ item }) => (
             <Pressable
               style={[
@@ -100,7 +99,7 @@ export function SearchResultsScreen({ route, navigation }: RootStackScreenProps<
               )}
               {item.isFavorite && (
                 <View style={[styles.badge, { backgroundColor: theme.colors.error }]}>
-                  <Text style={styles.badgeText}>♥</Text>
+                  <LineIcon name="heart" size={12} color="#E91E63" fill="#E91E63" />
                 </View>
               )}
             </Pressable>
@@ -118,7 +117,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 56,
+
     paddingBottom: 12,
     borderBottomWidth: 0.5,
   },

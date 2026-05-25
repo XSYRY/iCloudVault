@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { useMd3Theme } from '../../theme';
 import { parseIntent } from '../../ai/nlu/parser';
 import type { ParsedIntent } from '../../ai/nlu/parser';
@@ -19,6 +19,7 @@ const FIELD_LABELS: Record<keyof ParsedIntent, string> = {
   location: '地点',
   keyword: '内容',
   category: '分类',
+  season: '季节',
   raw: '',
 };
 
@@ -31,6 +32,7 @@ export function SemanticChips({ query, onRemoveChip }: SemanticChipsProps) {
   if (intent.location) chips.push({ field: 'location', value: intent.location });
   if (intent.keyword) chips.push({ field: 'keyword', value: intent.keyword });
   if (intent.category) chips.push({ field: 'category', value: intent.category });
+  if (intent.season) chips.push({ field: 'season', value: intent.season });
 
   if (chips.length === 0) return null;
 

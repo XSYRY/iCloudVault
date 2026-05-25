@@ -1,7 +1,9 @@
 import React, { useMemo, useCallback } from 'react';
-import { View, FlatList, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useMd3Theme } from '../theme';
 import { usePhotoStore, useUiStore } from '../store';
+import { useShallow } from 'zustand/react/shallow';
 import type { RootStackScreenProps } from '../navigation/types';
 import { Toolbar } from '../components/shared/Toolbar';
 import { PhotoCard } from '../components/photo/PhotoCard';
@@ -10,16 +12,11 @@ import type { Photo } from '../types';
 
 export function FavoritesScreen({ navigation }: RootStackScreenProps<'Favorites'>) {
   const theme = useMd3Theme();
-  const photos = usePhotoStore((s) => s.photos);
+  const favorites = usePhotoStore(useShallow(s => s.photos.filter(p => !p.isDeleted && p.isFavorite)));
   const screenWidth = Dimensions.get('window').width;
   const cols = 3;
   const gap = 2;
   const cardSize = Math.floor((screenWidth - gap * 2 - gap * (cols - 1)) / cols);
-
-  const favorites = useMemo(
-    () => photos.filter((p) => !p.isDeleted && p.isFavorite),
-    [photos],
-  );
 
   const handlePress = useCallback(
     (photoId: string) => {
@@ -43,7 +40,7 @@ export function FavoritesScreen({ navigation }: RootStackScreenProps<'Favorites'
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <Toolbar title="收藏" showBack onBack={() => navigation.goBack()} />
-        <EmptyState icon="♥" title="还没有收藏" subtitle="在照片上点按收藏即可出现在这里" />
+        <EmptyState icon="heart" title="还没有收藏" subtitle="在照片上点按收藏即可出现在这里" />
       </View>
     );
   }
@@ -51,9 +48,10 @@ export function FavoritesScreen({ navigation }: RootStackScreenProps<'Favorites'
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Toolbar title="收藏" subtitle={`${favorites.length} 张`} showBack onBack={() => navigation.goBack()} />
-      <FlatList
+      <FlashList
         data={rows}
         keyExtractor={(_, idx) => `fav-${idx}`}
+        estimatedItemSize={120}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         renderItem={({ item: row }) => (

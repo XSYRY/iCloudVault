@@ -1,7 +1,9 @@
 import React, { useMemo, useCallback } from 'react';
-import { View, FlatList, StyleSheet, Pressable, Text, Dimensions } from 'react-native';
+import { View, StyleSheet, Pressable, Text, Dimensions } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useMd3Theme } from '../theme';
 import { usePhotoStore, useUiStore } from '../store';
+import { useShallow } from 'zustand/react/shallow';
 import type { RootStackScreenProps } from '../navigation/types';
 import { Toolbar } from '../components/shared/Toolbar';
 import { PhotoCard } from '../components/photo/PhotoCard';
@@ -10,7 +12,7 @@ import type { Photo } from '../types';
 
 export function HiddenScreen({ navigation }: RootStackScreenProps<'Hidden'>) {
   const theme = useMd3Theme();
-  const photos = usePhotoStore((s) => s.photos);
+  const hidden = usePhotoStore(useShallow(s => s.photos.filter(p => !p.isDeleted && p.isHidden)));
   const updatePhoto = usePhotoStore((s) => s.updatePhoto);
   const showToast = useUiStore((s) => s.showToast);
   const screenWidth = Dimensions.get('window').width;
@@ -18,9 +20,14 @@ export function HiddenScreen({ navigation }: RootStackScreenProps<'Hidden'>) {
   const gap = 2;
   const cardSize = Math.floor((screenWidth - gap * 2 - gap * (cols - 1)) / cols);
 
-  const hidden = useMemo(
-    () => photos.filter((p) => !p.isDeleted && p.isHidden),
-    [photos],
+  const handlePress = useCallback(
+    (photoId: string) => {
+      navigation.navigate('Lightbox', {
+        photoId,
+        photoIds: hidden.map((hp) => hp.id),
+      });
+    },
+    [hidden, navigation],
   );
 
   const handleUnhide = useCallback(
@@ -43,7 +50,7 @@ export function HiddenScreen({ navigation }: RootStackScreenProps<'Hidden'>) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <Toolbar title="隐藏照片" showBack onBack={() => navigation.goBack()} />
-        <EmptyState icon="🙈" title="没有隐藏的照片" subtitle="长按照片可选择隐藏" />
+        <EmptyState icon="eye-off" title="没有隐藏的照片" subtitle="长按照片可选择隐藏" />
       </View>
     );
   }
@@ -51,9 +58,10 @@ export function HiddenScreen({ navigation }: RootStackScreenProps<'Hidden'>) {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Toolbar title="隐藏照片" subtitle={`${hidden.length} 张`} showBack onBack={() => navigation.goBack()} />
-      <FlatList
+      <FlashList
         data={rows}
         keyExtractor={(_, idx) => `hid-${idx}`}
+        estimatedItemSize={120}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         renderItem={({ item: row }) => (
@@ -61,7 +69,7 @@ export function HiddenScreen({ navigation }: RootStackScreenProps<'Hidden'>) {
             {row.map((p) => (
               <View key={p.id}>
                 <View style={{ opacity: 0.5 }}>
-                  <PhotoCard photo={p} size={cardSize} onPress={() => {}} />
+                  <PhotoCard photo={p} size={cardSize} onPress={handlePress} />
                 </View>
                 <Pressable
                   style={[styles.unhideBtn, { backgroundColor: theme.colors.primaryContainer }]}

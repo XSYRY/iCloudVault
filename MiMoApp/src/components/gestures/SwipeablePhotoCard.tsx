@@ -1,12 +1,16 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, Animated, PanResponder } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
 import { useMd3Theme } from '../../theme';
+import { LineIcon } from '../shared/LineIcon';
 import { PhotoCard } from '../photo/PhotoCard';
 import type { Photo } from '../../types';
-
-// ============================================================
-// SwipeablePhotoCard — 右滑收藏 / 左滑删除
-// ============================================================
 
 interface SwipeablePhotoCardProps {
   photo: Photo;
@@ -26,65 +30,62 @@ export function SwipeablePhotoCard({
   onDelete,
 }: SwipeablePhotoCardProps) {
   const theme = useMd3Theme();
-  const translateX = React.useRef(new Animated.Value(0)).current;
+  const translateX = useSharedValue(0);
+  const contextX = useSharedValue(0);
 
-  const panResponder = React.useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 10 && Math.abs(gs.dx) > Math.abs(gs.dy) * 2,
-      onPanResponderMove: (_, gs) => {
-        translateX.setValue(gs.dx * 0.6);
-      },
-      onPanResponderRelease: (_, gs) => {
-        if (gs.dx > SWIPE_THRESHOLD) {
-          // 右滑 → 收藏
-          Animated.spring(translateX, {
-            toValue: size,
-            useNativeDriver: true,
-          }).start(() => {
-            onFavorite(photo.id);
-            translateX.setValue(0);
-          });
-        } else if (gs.dx < -SWIPE_THRESHOLD) {
-          // 左滑 → 删除
-          Animated.spring(translateX, {
-            toValue: -size,
-            useNativeDriver: true,
-          }).start(() => {
-            onDelete(photo.id);
-            translateX.setValue(0);
-          });
-        } else {
-          // 归位
-          Animated.spring(translateX, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    }),
-  ).current;
+  const triggerFavorite = useCallback(() => {
+    onFavorite(photo.id);
+    translateX.value = 0;
+  }, [onFavorite, photo.id, translateX]);
+
+  const triggerDelete = useCallback(() => {
+    onDelete(photo.id);
+    translateX.value = 0;
+  }, [onDelete, photo.id, translateX]);
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-10, 10])
+    .onStart(() => {
+      contextX.value = translateX.value;
+    })
+    .onUpdate((event) => {
+      translateX.value = contextX.value + event.translationX * 0.6;
+    })
+    .onEnd((event) => {
+      if (event.translationX > SWIPE_THRESHOLD) {
+        translateX.value = withSpring(size, { damping: 18, stiffness: 120 }, (finished) => {
+          if (finished) runOnJS(triggerFavorite)();
+        });
+      } else if (event.translationX < -SWIPE_THRESHOLD) {
+        translateX.value = withSpring(-size, { damping: 18, stiffness: 120 }, (finished) => {
+          if (finished) runOnJS(triggerDelete)();
+        });
+      } else {
+        translateX.value = withSpring(0, { damping: 18, stiffness: 160 });
+      }
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
   return (
-    <View style={[styles.wrapper, { width: size, height: size }]}>
-      {/* 右滑背景 — 收藏 */}
-      <View style={[styles.actionBg, styles.favBg, { backgroundColor: theme.colors.primaryContainer }]}>
-        <Text style={[styles.actionIcon, { color: theme.colors.primary }]}>♥</Text>
-      </View>
+    <GestureDetector gesture={panGesture}>
+      <View style={[styles.wrapper, { width: size, height: size }]}>
+        <View style={[styles.actionBg, styles.favBg, { backgroundColor: theme.colors.primaryContainer }]}>
+          <LineIcon name="heart" size={24} color={theme.colors.primary} fill={theme.colors.primary} />
+        </View>
 
-      {/* 左滑背景 — 删除 */}
-      <View style={[styles.actionBg, styles.delBg, { backgroundColor: theme.colors.errorContainer }]}>
-        <Text style={[styles.actionIcon, { color: theme.colors.error }]}>🗑</Text>
-      </View>
+        <View style={[styles.actionBg, styles.delBg, { backgroundColor: theme.colors.errorContainer }]}>
+          <LineIcon name="trash" size={24} color={theme.colors.error} />
+        </View>
 
-      {/* 前景卡片 */}
-      <Animated.View
-        style={{ transform: [{ translateX }] }}
-        {...panResponder.panHandlers}
-      >
-        <PhotoCard photo={photo} size={size} onPress={onPress} />
-      </Animated.View>
-    </View>
+        <Animated.View style={animatedStyle}>
+          <PhotoCard photo={photo} size={size} onPress={onPress} />
+        </Animated.View>
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -101,5 +102,4 @@ const styles = StyleSheet.create({
   },
   favBg: { left: 0, paddingRight: '60%' as any },
   delBg: { right: 0, paddingLeft: '60%' as any },
-  actionIcon: { fontSize: 24 },
 });

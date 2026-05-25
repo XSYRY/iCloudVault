@@ -4,12 +4,10 @@
 // 接口：embedText(text) → number[]
 // ============================================================
 
-let embeddingModel: any = null;
+let _embeddingModel: unknown = null;
 
 export async function loadEmbeddingModel(): Promise<void> {
-  // 后期实现：加载 TFLite 模型
-  // const model = await TFLite.load('mobileclip.tflite');
-  // embeddingModel = model;
+  _embeddingModel = null;
 }
 
 export async function embedText(_text: string): Promise<number[]> {

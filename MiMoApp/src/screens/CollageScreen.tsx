@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMd3Theme } from '../theme';
 import { usePhotoStore, useUiStore } from '../store';
 import { getCollageLayout } from '../utils/collages';
@@ -22,6 +23,7 @@ import type { RootStackScreenProps } from '../navigation/types';
 // ============================================================
 
 export function CollageScreen({ route, navigation }: RootStackScreenProps<'Collage'>) {
+  const insets = useSafeAreaInsets();
   const { photoIds } = route.params;
   const theme = useMd3Theme();
   const { width: screenWidth } = useWindowDimensions();
@@ -56,7 +58,7 @@ export function CollageScreen({ route, navigation }: RootStackScreenProps<'Colla
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* 顶部 */}
-      <View style={[styles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: theme.colors.outlineVariant }]}>
         <Pressable onPress={navigation.goBack}>
           <Text style={[styles.headerBtn, { color: theme.colors.primary }]}>关闭</Text>
         </Pressable>
@@ -231,7 +233,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 56,
+
     paddingBottom: 12,
     borderBottomWidth: 0.5,
   },

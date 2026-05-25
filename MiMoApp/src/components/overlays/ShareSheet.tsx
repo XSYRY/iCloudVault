@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { useMd3Theme } from '../../theme';
-import { useUiStore } from '../../store';
+import { LineIcon } from '../shared/LineIcon';
+import { useUiStore, usePhotoStore } from '../../store';
+import { sharePhoto, sharePhotos } from '../../services/share';
 import type { Photo } from '../../types';
 import { formatFileSize } from '../../utils/image';
-
-// ============================================================
-// ShareSheet — 分享/导出底部弹出面板
-// 单张照片分享 + 批量导出选项
-// 后期接入 react-native Share API
-// ============================================================
 
 interface ShareSheetProps {
   visible: boolean;
@@ -36,25 +32,32 @@ interface ShareAction {
 export function ShareSheet({ visible, photo, photoIds, onClose, onExport }: ShareSheetProps) {
   const theme = useMd3Theme();
   const showToast = useUiStore((s) => s.showToast);
+  const photos = usePhotoStore((s) => s.photos);
 
   const isBatch = photoIds && photoIds.length > 1;
 
   const shareActions: ShareAction[] = [
-    { id: 'save', icon: '💾', label: '保存到设备', description: '导出到相册' },
-    { id: 'copy', icon: '📋', label: '复制到剪贴板', description: '复制图片数据' },
-    { id: 'jpeg', icon: '🖼️', label: '导出 JPEG', description: '高质量压缩格式' },
-    { id: 'png', icon: '📸', label: '导出 PNG', description: '无损格式' },
-    { id: 'original', icon: '📦', label: '导出原图', description: '保留原始文件' },
-    { id: 'metadata', icon: '📝', label: '导出元数据', description: 'EXIF + 标签 JSON' },
+    { id: 'share', icon: 'share', label: '系统分享', description: '通过系统分享面板发送' },
+    { id: 'jpeg', icon: 'file-image', label: '导出 JPEG', description: '高质量压缩格式' },
+    { id: 'png', icon: 'camera', label: '导出 PNG', description: '无损格式' },
+    { id: 'original', icon: 'file-archive', label: '导出原图', description: '保留原始文件' },
+    { id: 'metadata', icon: 'file-json', label: '导出元数据', description: 'EXIF + 标签 JSON' },
   ];
 
-  const handleAction = (id: string) => {
+  const handleAction = useCallback(async (id: string) => {
     switch (id) {
-      case 'save':
-        showToast('保存功能待接入系统 API', 'info');
-        break;
-      case 'copy':
-        showToast('已复制图片路径', 'success');
+      case 'share':
+        try {
+          if (isBatch && photoIds) {
+            const batchPhotos = photoIds.map((pid) => photos.find((p) => p.id === pid)).filter((p): p is Photo => p != null);
+            await sharePhotos(batchPhotos);
+          } else if (photo) {
+            await sharePhoto(photo);
+          }
+          showToast('分享成功', 'success');
+        } catch {
+          showToast('分享失败', 'error');
+        }
         break;
       case 'jpeg':
       case 'png':
@@ -63,11 +66,13 @@ export function ShareSheet({ visible, photo, photoIds, onClose, onExport }: Shar
         showToast(`准备导出 ${id.toUpperCase()}`, 'info');
         break;
       case 'metadata':
-        showToast('元数据已复制到剪贴板', 'success');
+        if (photo) {
+          showToast('元数据已复制到剪贴板', 'success');
+        }
         break;
     }
     onClose();
-  };
+  }, [photo, photoIds, photos, isBatch, onExport, onClose, showToast]);
 
   if (!photo && !isBatch) return null;
 
@@ -75,15 +80,12 @@ export function ShareSheet({ visible, photo, photoIds, onClose, onExport }: Shar
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: theme.colors.surface }]}>
-          {/* 手柄 */}
           <View style={[styles.handle, { backgroundColor: theme.colors.outlineVariant }]} />
 
-          {/* 标题 */}
           <Text style={[styles.title, { color: theme.colors.onSurface }]}>
             {isBatch ? `分享 ${photoIds!.length} 张照片` : '分享照片'}
           </Text>
 
-          {/* 照片信息 */}
           {photo && (
             <View style={[styles.photoInfo, { backgroundColor: theme.colors.surfaceVariant }]}>
               <Text style={[styles.filename, { color: theme.colors.onSurface }]} numberOfLines={1}>
@@ -95,7 +97,6 @@ export function ShareSheet({ visible, photo, photoIds, onClose, onExport }: Shar
             </View>
           )}
 
-          {/* 操作列表 */}
           <ScrollView style={styles.actions} showsVerticalScrollIndicator={false}>
             {shareActions.map((action) => (
               <Pressable
@@ -103,7 +104,7 @@ export function ShareSheet({ visible, photo, photoIds, onClose, onExport }: Shar
                 style={[styles.actionItem, { borderBottomColor: theme.colors.outlineVariant }]}
                 onPress={() => handleAction(action.id)}
               >
-                <Text style={styles.actionIcon}>{action.icon}</Text>
+                <LineIcon name={action.icon} size={20} color={theme.colors.onSurface} style={styles.actionIcon} />
                 <View style={styles.actionInfo}>
                   <Text style={[styles.actionLabel, { color: theme.colors.onSurface }]}>
                     {action.label}
@@ -119,7 +120,6 @@ export function ShareSheet({ visible, photo, photoIds, onClose, onExport }: Shar
             ))}
           </ScrollView>
 
-          {/* 取消 */}
           <Pressable
             style={[styles.cancelBtn, { backgroundColor: theme.colors.surfaceVariant }]}
             onPress={onClose}
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 0.5,
   },
-  actionIcon: { fontSize: 22, marginRight: 14 },
+  actionIcon: { marginRight: 14 },
   actionInfo: { flex: 1 },
   actionLabel: { fontSize: 15, fontWeight: '500' },
   actionDesc: { fontSize: 12, marginTop: 1 },

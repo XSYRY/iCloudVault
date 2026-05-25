@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { View, StyleSheet, Pressable, Text, FlatList, ScrollView } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { usePhotoStore, useUiStore, useSettingsStore } from '../store';
 import { useMd3Theme } from '../theme';
 import { useMemoryPhotos } from '../hooks/useMemoryPhotos';
@@ -11,20 +12,23 @@ import { SearchSuggestions } from '../components/search/SearchSuggestions';
 import { FilterRow } from '../components/filter/FilterRow';
 import { FabMenu } from '../components/fab/FabMenu';
 import { Toolbar } from '../components/shared/Toolbar';
+import { LineIcon } from '../components/shared/LineIcon';
+import { hapticMedium, hapticSelection } from '../services/haptics';
 import { Toast } from '../components/shared/Toast';
 import { MemoryCard } from '../components/shared/MemoryCard';
-import { AiOverlay } from '../components/overlays/AiOverlay';
-import { DedupOverlay } from '../components/overlays/DedupOverlay';
-import { StatsModal } from '../components/overlays/StatsModal';
-import { SettingsModal } from '../components/overlays/SettingsModal';
-import { BatchEditModal } from '../components/overlays/BatchEditModal';
-import { AlbumChipMenu } from '../components/albums/AlbumChipMenu';
 
-export function GridScreen({ navigation }: TabScreenProps<'GridTab'>) {
+const AiOverlay = React.lazy(() => import('../components/overlays/AiOverlay').then(m => ({ default: m.AiOverlay })));
+const DedupOverlay = React.lazy(() => import('../components/overlays/DedupOverlay').then(m => ({ default: m.DedupOverlay })));
+const StatsModal = React.lazy(() => import('../components/overlays/StatsModal').then(m => ({ default: m.StatsModal })));
+const SettingsModal = React.lazy(() => import('../components/overlays/SettingsModal').then(m => ({ default: m.SettingsModal })));
+const BatchEditModal = React.lazy(() => import('../components/overlays/BatchEditModal').then(m => ({ default: m.BatchEditModal })));
+const AlbumChipMenu = React.lazy(() => import('../components/albums/AlbumChipMenu').then(m => ({ default: m.AlbumChipMenu })));
+
+export function GridScreen({ navigation }: TabScreenProps<'PhotosTab'>) {
   const theme = useMd3Theme();
   const photos = usePhotoStore((s) => s.photos);
-  const getFilteredPhotos = usePhotoStore((s) => s.getFilteredPhotos);
   const filter = usePhotoStore((s) => s.filter);
+  const sortMode = usePhotoStore((s) => s.sortMode);
   const setFilter = usePhotoStore((s) => s.setFilter);
   const selectionMode = usePhotoStore((s) => s.selectionMode);
   const enterSelection = usePhotoStore((s) => s.enterSelection);
@@ -37,7 +41,50 @@ export function GridScreen({ navigation }: TabScreenProps<'GridTab'>) {
   const setSettingsVisible = useUiStore((s) => s.setSettingsModalVisible);
   const memories = useMemoryPhotos();
 
-  const filteredPhotos = getFilteredPhotos();
+  const selBarY = useSharedValue(80);
+  const selBarOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (selectionMode && selectedIds.size > 0) {
+      selBarY.value = withTiming(0, { duration: 280 });
+      selBarOpacity.value = withTiming(1, { duration: 250 });
+    } else {
+      selBarY.value = withTiming(80, { duration: 200 });
+      selBarOpacity.value = withTiming(0, { duration: 180 });
+    }
+  }, [selectionMode, selectedIds.size]);
+
+  const selBarAnim = useAnimatedStyle(() => ({
+    transform: [{ translateY: selBarY.value }],
+    opacity: selBarOpacity.value,
+  }));
+
+  const filteredPhotos = useMemo(() => {
+    let result = photos.filter((p) => !p.isDeleted);
+    if (filter.category) result = result.filter((p) => p.aiCategory === filter.category);
+    if (filter.isFavorite) result = result.filter((p) => p.isFavorite);
+    if (filter.location) result = result.filter((p) => p.locationName?.includes(filter.location!));
+    if (filter.searchQuery) {
+      const q = filter.searchQuery.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.filename.toLowerCase().includes(q) ||
+          (p.aiTags && p.aiTags.some((t) => t.toLowerCase().includes(q))) ||
+          p.locationName?.toLowerCase().includes(q) ||
+          p.dateTaken.includes(q),
+      );
+    }
+    result.sort((a, b) => {
+      switch (sortMode) {
+        case 'date-asc': return a.createdAt - b.createdAt;
+        case 'name': return a.filename.localeCompare(b.filename);
+        case 'size': return a.sizeBytes - b.sizeBytes;
+        case 'date-desc':
+        default: return b.createdAt - a.createdAt;
+      }
+    });
+    return result;
+  }, [photos, filter, sortMode]);
 
   const handlePhotoPress = useCallback(
     (photoId: string) => {
@@ -53,6 +100,7 @@ export function GridScreen({ navigation }: TabScreenProps<'GridTab'>) {
 
   const handlePhotoLongPress = useCallback(
     (photoId: string) => {
+      hapticMedium();
       if (!selectionMode) {
         enterSelection();
         toggleSelection(photoId);
@@ -96,11 +144,12 @@ export function GridScreen({ navigation }: TabScreenProps<'GridTab'>) {
           break;
         case 'album':
           setAlbumMenuVisible(true);
-          return; // Don't exit selection mode
+          return;
         case 'batchEdit':
           setBatchEditVisible(true);
-          return; // Don't exit selection mode
+          return;
       }
+      hapticSelection();
       exitSelection();
     },
     [selectedIds, navigation, exitSelection],
@@ -111,30 +160,30 @@ export function GridScreen({ navigation }: TabScreenProps<'GridTab'>) {
     filter.isFavorite !== null ||
     filter.searchQuery !== '';
 
-  // 列表头部：搜索结果为空时显示提示 + 回忆卡片
   const ListHeader = useMemo(() => {
     const components: React.ReactElement[] = [];
     if (hasActiveFilter && filteredPhotos.length === 0) {
       components.push(
         <View key="no-results" style={[styles.noResults, { backgroundColor: theme.colors.surfaceVariant }]}>
-          <Text style={{ fontSize: 32, textAlign: 'center' }}>🔍</Text>
-          <Text style={[styles.noResultsText, { color: theme.colors.onSurfaceVariant }]}>
-            没有找到匹配的照片
-          </Text>
+          <View style={[styles.emptyIllust, { backgroundColor: theme.colors.surface }]}>
+            <LineIcon name="search" size={48} color={theme.colors.scrim} />
+          </View>
+          <Text style={[styles.emptyText, { color: theme.colors.onSurface }]}>没有找到匹配的照片</Text>
+          <Text style={[styles.emptySub, { color: theme.colors.onSurfaceVariant }]}>尝试调整筛选条件或搜索关键词</Text>
         </View>,
       );
     }
     if (!hasActiveFilter && memories.length > 0 && filteredPhotos.length > 0) {
       const mem = memories[0];
-      const memPhoto = photos.find((p) => p.id === mem.photoId);
+      const memPhoto = mem.photos[0];
       components.push(
         <MemoryCard
-          key={`mem-${mem.id}`}
+          key={`mem-${mem.type}-${mem.dateLabel}`}
           memory={mem}
           photoUri={memPhoto?.thumbnailUri}
           color={memPhoto?.color}
           onPress={(photoId) => {
-            const ids = filteredPhotos.map((p) => p.id);
+            const ids = mem.photos.map((p) => p.id);
             navigation.navigate('Lightbox', { photoId, photoIds: ids });
           }}
         />,
@@ -144,72 +193,28 @@ export function GridScreen({ navigation }: TabScreenProps<'GridTab'>) {
   }, [hasActiveFilter, filteredPhotos.length, memories, photos, theme, navigation, filteredPhotos]);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
       <Toolbar
-        title={selectionMode ? `${selectedIds.size} 已选` : 'MiMo'}
+        title={selectionMode ? `${selectedIds.size} 已选` : 'Momento'}
         subtitle={!selectionMode && hasActiveFilter ? `${filteredPhotos.length} 张` : undefined}
         actions={
           !selectionMode ? (
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Pressable onPress={() => setStatsVisible(true)}>
-                <Text style={{ fontSize: 18 }}>📊</Text>
+            <View style={styles.headerActions}>
+              <Pressable style={[styles.headerBtn, { backgroundColor: theme.colors.surfaceVariant }]} onPress={() => setStatsVisible(true)}>
+                <LineIcon name="bar-chart" size={22} color={theme.colors.onSurfaceVariant} />
               </Pressable>
-              <Pressable onPress={() => setSettingsVisible(true)}>
-                <Text style={{ fontSize: 18 }}>⚙️</Text>
+              <Pressable style={[styles.headerBtn, { backgroundColor: theme.colors.surfaceVariant }]} onPress={() => setSettingsVisible(true)}>
+                <LineIcon name="settings" size={22} color={theme.colors.onSurfaceVariant} />
               </Pressable>
             </View>
           ) : (
-            <Pressable onPress={exitSelection}>
-              <Text style={{ color: theme.colors.primary, fontSize: 15, fontWeight: '600' }}>取消</Text>
+            <Pressable style={[styles.cancelBtn, { backgroundColor: theme.colors.surfaceVariant }]} onPress={() => { hapticSelection(); exitSelection(); }}>
+              <Text style={{ color: theme.colors.primary, fontSize: 15, fontWeight: '500' }}>取消</Text>
             </Pressable>
           )
         }
       />
 
-      {/* 选择模式工具栏 */}
-      {selectionMode && selectedIds.size > 0 && (
-        <View style={[styles.selectionBar, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.outlineVariant }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectionActions}>
-            <Pressable
-              style={[styles.selectionBtn, { backgroundColor: theme.colors.primaryContainer }]}
-              onPress={() => handleSelectionAction('collage')}
-            >
-              <Text style={styles.selectionBtnIcon}>🖼️</Text>
-              <Text style={[styles.selectionBtnLabel, { color: theme.colors.onPrimaryContainer }]}>拼图</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.selectionBtn, { backgroundColor: theme.colors.secondaryContainer }]}
-              onPress={() => handleSelectionAction('compare')}
-            >
-              <Text style={styles.selectionBtnIcon}>↔️</Text>
-              <Text style={[styles.selectionBtnLabel, { color: theme.colors.onSecondaryContainer }]}>对比</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.selectionBtn, { backgroundColor: theme.colors.tertiaryContainer }]}
-              onPress={() => handleSelectionAction('slideshow')}
-            >
-              <Text style={styles.selectionBtnIcon}>▶️</Text>
-              <Text style={[styles.selectionBtnLabel, { color: theme.colors.onTertiaryContainer }]}>幻灯片</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.selectionBtn, { backgroundColor: theme.colors.surfaceVariant }]}
-              onPress={() => handleSelectionAction('album')}
-            >
-              <Text style={styles.selectionBtnIcon}>📁</Text>
-              <Text style={[styles.selectionBtnLabel, { color: theme.colors.onSurfaceVariant }]}>添加到相册</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.selectionBtn, { backgroundColor: theme.colors.errorContainer }]}
-              onPress={() => handleSelectionAction('batchEdit')}
-            >
-              <Text style={styles.selectionBtnIcon}>🏷️</Text>
-              <Text style={[styles.selectionBtnLabel, { color: theme.colors.onErrorContainer }]}>批量编辑</Text>
-            </Pressable>
-          </ScrollView>
-        </View>
-      )}
-
-      {/* 搜索模式 */}
       {isSearchActive ? (
         <View style={{ flex: 1 }}>
           <SearchBar
@@ -225,74 +230,207 @@ export function GridScreen({ navigation }: TabScreenProps<'GridTab'>) {
         </View>
       ) : (
         <>
-          <SearchBar
-            isActive={false}
-            onFocus={() => setSearchActive(true)}
-            onSubmit={handleSearchSubmit}
-            onClose={() => setSearchActive(false)}
-          />
-          <FilterRow />
+          <View style={styles.searchFilterSection}>
+            <SearchBar
+              isActive={false}
+              onFocus={() => setSearchActive(true)}
+              onSubmit={handleSearchSubmit}
+              onClose={() => setSearchActive(false)}
+            />
+            <FilterRow />
+          </View>
           <PhotoGrid
             photos={filteredPhotos}
             onPhotoPress={handlePhotoPress}
             onPhotoLongPress={handlePhotoLongPress}
             selectedIds={selectionMode ? selectedIds : undefined}
+            selectMode={selectionMode}
+            style={styles.photoGrid}
           />
         </>
       )}
 
+      {selectionMode && selectedIds.size > 0 && (
+        <Animated.View pointerEvents="box-none" style={[styles.selectionBar, { backgroundColor: theme.colors.surfaceContainer, borderTopColor: theme.colors.outlineVariant }, selBarAnim]}>
+          <View style={[styles.selectionInfo, { backgroundColor: theme.colors.surfaceContainerHighest }]}>
+            <Text style={[styles.selectionCount, { color: theme.colors.onSurface }]}>{selectedIds.size}</Text>
+            <Text style={[styles.selectionLabel, { color: theme.colors.onSurfaceVariant }]}>已选</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectionActions}>
+            <Pressable
+              style={[styles.selectionBtn, { backgroundColor: theme.colors.background }]}
+              onPress={() => handleSelectionAction('collage')}
+            >
+              <LineIcon name="image" size={16} color={theme.colors.onSurface} />
+              <Text style={[styles.selectionBtnLabel, { color: theme.colors.onSurface }]}>拼图</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.selectionBtn, { backgroundColor: theme.colors.background }]}
+              onPress={() => handleSelectionAction('compare')}
+            >
+              <LineIcon name="compare" size={16} color={theme.colors.onSurface} />
+              <Text style={[styles.selectionBtnLabel, { color: theme.colors.onSurface }]}>对比</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.selectionBtn, { backgroundColor: theme.colors.background }]}
+              onPress={() => handleSelectionAction('slideshow')}
+            >
+              <LineIcon name="play" size={16} color={theme.colors.onSurface} />
+              <Text style={[styles.selectionBtnLabel, { color: theme.colors.onSurface }]}>幻灯片</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.selectionBtn, { backgroundColor: theme.colors.background }]}
+              onPress={() => handleSelectionAction('album')}
+            >
+              <LineIcon name="folder" size={16} color={theme.colors.onSurface} />
+              <Text style={[styles.selectionBtnLabel, { color: theme.colors.onSurface }]}>添加到相册</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.selectionBtn, { backgroundColor: theme.colors.errorContainer }]}
+              onPress={() => handleSelectionAction('batchEdit')}
+            >
+              <LineIcon name="trash" size={16} color={theme.colors.error} />
+              <Text style={[styles.selectionBtnLabel, { color: theme.colors.error }]}>删除</Text>
+            </Pressable>
+          </ScrollView>
+        </Animated.View>
+      )}
+
       <FabMenu navigation={navigation} />
       <Toast />
-      <AiOverlay />
-      <DedupOverlay />
-      <StatsModal />
-      <SettingsModal />
-      <AlbumChipMenu
+      <React.Suspense fallback={null}><AiOverlay /></React.Suspense>
+      <React.Suspense fallback={null}><DedupOverlay /></React.Suspense>
+      <React.Suspense fallback={null}><StatsModal /></React.Suspense>
+      <React.Suspense fallback={null}><SettingsModal /></React.Suspense>
+      <React.Suspense fallback={null}><AlbumChipMenu
         visible={albumMenuVisible}
         photoIds={Array.from(selectedIds)}
         onClose={() => setAlbumMenuVisible(false)}
         onDone={() => {
           setAlbumMenuVisible(false);
+          hapticSelection();
           exitSelection();
         }}
-      />
-      <BatchEditModal
+      /></React.Suspense>
+      <React.Suspense fallback={null}><BatchEditModal
         visible={batchEditVisible}
         photoIds={Array.from(selectedIds)}
         onClose={() => {
           setBatchEditVisible(false);
+          hapticSelection();
           exitSelection();
         }}
-      />
+      /></React.Suspense>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  searchFilterSection: { overflow: 'hidden', paddingHorizontal: 20, gap: 0 },
+  photoGrid: { flex: 1, paddingHorizontal: 16, paddingTop: 8 },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  headerBtn: {
+    padding: 8,
+    borderRadius: 999,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtn: {
+    padding: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+  },
   selectionBar: {
+    position: 'absolute',
+    bottom: 96,
+    left: 0,
+    right: 0,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    zIndex: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 0,
+  },
+  selectionInfo: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    minWidth: 56,
+    borderRadius: 999,
     paddingVertical: 8,
-    borderBottomWidth: 0.5,
+    paddingHorizontal: 12,
+  },
+  selectionCount: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  selectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   selectionActions: {
-    paddingHorizontal: 12,
+    flex: 1,
     gap: 8,
   },
   selectionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 999,
+    borderWidth: 0,
+    gap: 8,
+    flexShrink: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 0,
   },
-  selectionBtnIcon: { fontSize: 14 },
-  selectionBtnLabel: { fontSize: 12, fontWeight: '600' },
+  selectionBtnLabel: { fontSize: 14, fontWeight: '600' },
   noResults: {
-    margin: 16,
-    padding: 32,
-    borderRadius: 20,
+    margin: 20,
+    padding: 28,
+    paddingTop: 40,
+    borderRadius: 24,
     alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
   },
-  noResultsText: { fontSize: 15, marginTop: 8 },
+  emptyIllust: {
+    width: 140,
+    height: 140,
+    borderRadius: 999,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 6,
+    letterSpacing: -0.3,
+  },
+  emptySub: {
+    fontSize: 14,
+    marginTop: 4,
+    lineHeight: 1.5,
+    maxWidth: 260,
+    textAlign: 'center',
+  },
 });

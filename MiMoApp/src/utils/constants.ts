@@ -2,7 +2,7 @@
 // 常量 — 应用全局配置
 // ============================================================
 
-export const APP_NAME = 'MiMo';
+export const APP_NAME = 'Momento';
 export const APP_VERSION = '0.1.0';
 
 // 存储 key
@@ -33,15 +33,15 @@ export const TRASH = {
   AUTO_DELETE_DAYS: 30,
 } as const;
 
-// 类别 emoji 映射
-export const CATEGORY_EMOJI: Record<string, string> = {
-  person: '👤',
-  landscape: '🏞️',
-  document: '📄',
-  pet: '🐾',
-  food: '🍽️',
-  object: '📦',
-  other: '📷',
+// 类别图标映射
+export const CATEGORY_ICON: Record<string, string> = {
+  person: 'user',
+  landscape: 'mountain',
+  document: 'file-text',
+  pet: 'cat',
+  food: 'utensils',
+  object: 'box',
+  other: 'camera',
 };
 
 export const CATEGORY_LABELS: Record<string, string> = {

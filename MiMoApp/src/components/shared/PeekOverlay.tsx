@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, Pressable, Modal } from 'react-native';
 import { useMd3Theme } from '../../theme';
+import { LineIcon } from './LineIcon';
 import type { Photo } from '../../types';
 
 // ============================================================
@@ -64,10 +65,10 @@ export function PeekOverlay({
 
           {/* 快速操作 */}
           <View style={styles.actions}>
-            <QuickAction emoji="👁️" label="查看" onPress={onOpen} />
-            <QuickAction emoji={photo.isFavorite ? '💔' : '♥️'} label="收藏" onPress={onFavorite} />
-            <QuickAction emoji="🙈" label="隐藏" onPress={onHide} />
-            <QuickAction emoji="🗑️" label="删除" onPress={onDelete} destructive />
+            <QuickAction iconName="eye" label="查看" onPress={onOpen} />
+            <QuickAction iconName="heart" label="收藏" onPress={onFavorite} />
+            <QuickAction iconName="eye-off" label="隐藏" onPress={onHide} />
+            <QuickAction iconName="trash" label="删除" onPress={onDelete} destructive />
           </View>
         </View>
       </Pressable>
@@ -76,12 +77,12 @@ export function PeekOverlay({
 }
 
 function QuickAction({
-  emoji,
+  iconName,
   label,
   onPress,
   destructive,
 }: {
-  emoji: string;
+  iconName: string;
   label: string;
   onPress: () => void;
   destructive?: boolean;
@@ -90,7 +91,7 @@ function QuickAction({
 
   return (
     <Pressable style={styles.action} onPress={onPress}>
-      <Text style={styles.actionEmoji}>{emoji}</Text>
+      <LineIcon name={iconName} size={20} color={destructive ? theme.colors.error : theme.colors.onSurface} />
       <Text
         style={[
           styles.actionLabel,
@@ -140,6 +141,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
   },
-  actionEmoji: { fontSize: 20, marginBottom: 2 },
   actionLabel: { fontSize: 11, fontWeight: '500' },
 });

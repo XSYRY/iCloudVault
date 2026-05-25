@@ -1,11 +1,16 @@
-import React, { useMemo, useCallback } from 'react';
-import { View, FlatList, StyleSheet, Dimensions } from 'react-native';
+import React, { useMemo, useCallback, useState } from 'react';
+import { View, StyleSheet, Dimensions, Pressable } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useMd3Theme } from '../theme';
 import { useAlbumStore, usePhotoStore } from '../store';
+import { usePhotoImport } from '../hooks/usePhotoImport';
 import type { RootStackScreenProps } from '../navigation/types';
 import { Toolbar } from '../components/shared/Toolbar';
 import { PhotoCard } from '../components/photo/PhotoCard';
 import { EmptyState } from '../components/shared/EmptyState';
+import { PhotoPickerDialog } from '../components/albums/PhotoPickerDialog';
+import { ImportProgressModal } from '../components/overlays/ImportProgressModal';
+import { LineIcon } from '../components/shared/LineIcon';
 import type { Photo } from '../types';
 
 export function AlbumDetailScreen({ route, navigation }: RootStackScreenProps<'AlbumDetail'>) {
@@ -13,6 +18,9 @@ export function AlbumDetailScreen({ route, navigation }: RootStackScreenProps<'A
   const theme = useMd3Theme();
   const album = useAlbumStore((s) => s.albums.find((a) => a.id === albumId));
   const photos = usePhotoStore((s) => s.photos);
+  const { isImporting, progress, importFromGallery, cancelImport } = usePhotoImport();
+  const [pickerVisible, setPickerVisible] = useState(false);
+
   const screenWidth = Dimensions.get('window').width;
   const cols = 3;
   const gap = 2;
@@ -34,6 +42,10 @@ export function AlbumDetailScreen({ route, navigation }: RootStackScreenProps<'A
     },
     [albumPhotos, navigation],
   );
+
+  const handleImportAndAdd = useCallback(() => {
+    importFromGallery();
+  }, [importFromGallery]);
 
   if (!album) {
     return (
@@ -59,13 +71,24 @@ export function AlbumDetailScreen({ route, navigation }: RootStackScreenProps<'A
         subtitle={`${album.photoCount} 张${album.isSmart ? ' · 智能相册' : ''}`}
         showBack
         onBack={() => navigation.goBack()}
+        actions={
+          <View style={styles.toolbarActions}>
+            <Pressable style={styles.actionBtn} onPress={() => setPickerVisible(true)}>
+              <LineIcon name="image" size={22} color={theme.colors.primary} />
+            </Pressable>
+            <Pressable style={styles.actionBtn} onPress={handleImportAndAdd}>
+              <LineIcon name="plus" size={22} color={theme.colors.primary} />
+            </Pressable>
+          </View>
+        }
       />
       {albumPhotos.length === 0 ? (
-        <EmptyState icon="📸" title="相册为空" subtitle="点击 + 添加照片到相册" />
+        <EmptyState icon="image" title="相册为空" subtitle="点击 + 添加照片到相册" />
       ) : (
-        <FlatList
+        <FlashList
           data={rows}
           keyExtractor={(_, idx) => `ad-${idx}`}
+          estimatedItemSize={120}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           renderItem={({ item: row }) => (
@@ -77,6 +100,18 @@ export function AlbumDetailScreen({ route, navigation }: RootStackScreenProps<'A
           )}
         />
       )}
+      <PhotoPickerDialog
+        visible={pickerVisible}
+        albumId={albumId}
+        onClose={() => setPickerVisible(false)}
+      />
+      <ImportProgressModal
+        visible={isImporting}
+        progress={progress}
+        importedCount={progress?.current ?? 0}
+        onComplete={cancelImport}
+        onCancel={cancelImport}
+      />
     </View>
   );
 }
@@ -85,4 +120,12 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   listContent: { paddingHorizontal: 2, paddingBottom: 80 },
   row: { flexDirection: 'row', marginBottom: 2 },
+  toolbarActions: { flexDirection: 'row', gap: 4 },
+  actionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

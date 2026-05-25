@@ -6,8 +6,10 @@ import {
   Pressable,
   Modal,
 } from 'react-native';
-import { useMd3Theme } from '../../theme';
+import { useAppTheme } from '../../theme';
+import { LineIcon } from '../shared/LineIcon';
 import { usePhotoStore, useUiStore } from '../../store';
+import { hapticSuccess, hapticWarning, hapticSelection } from '../../services/haptics';
 import type { Photo } from '../../types';
 
 // ============================================================
@@ -33,7 +35,7 @@ interface Action {
 }
 
 export function PhotoActionSheet({ visible, photo, onClose, onEdit, onCompare, onExifEdit }: PhotoActionSheetProps) {
-  const theme = useMd3Theme();
+  const { md3Theme: theme, tokens } = useAppTheme();
   const updatePhoto = usePhotoStore((s) => s.updatePhoto);
   const showToast = useUiStore((s) => s.showToast);
 
@@ -46,14 +48,17 @@ export function PhotoActionSheet({ visible, photo, onClose, onEdit, onCompare, o
       case 'favorite':
         updatePhoto(photo.id, { isFavorite: !photo.isFavorite });
         showToast(photo.isFavorite ? '已取消收藏' : '已收藏', 'success');
+        hapticSuccess();
         break;
       case 'hidden':
         updatePhoto(photo.id, { isHidden: !photo.isHidden });
         showToast(photo.isHidden ? '已取消隐藏' : '已隐藏', 'info');
+        hapticSelection();
         break;
       case 'pin':
         updatePhoto(photo.id, { isPinned: !photo.isPinned });
         showToast(photo.isPinned ? '已取消置顶' : '已置顶', 'success');
+        hapticSuccess();
         break;
       case 'rating':
         setShowRating(true);
@@ -79,25 +84,25 @@ export function PhotoActionSheet({ visible, photo, onClose, onEdit, onCompare, o
   };
 
   const actions: Action[] = [
-    { id: 'favorite', icon: photo.isFavorite ? '❤️' : '🤍', label: photo.isFavorite ? '取消收藏' : '收藏', active: photo.isFavorite },
-    { id: 'rating', icon: '⭐', label: photo.rating > 0 ? `评分 ${'★'.repeat(photo.rating)}` : '评分' },
-    { id: 'hidden', icon: photo.isHidden ? '👁️' : '🙈', label: photo.isHidden ? '取消隐藏' : '隐藏', active: photo.isHidden },
-    { id: 'pin', icon: '📌', label: photo.isPinned ? '取消置顶' : '置顶', active: photo.isPinned },
-    { id: 'edit', icon: '✏️', label: '编辑' },
-    { id: 'compare', icon: '↔️', label: '对比' },
-    { id: 'exif', icon: '📋', label: '编辑 EXIF' },
+    { id: 'favorite', icon: 'heart', label: photo.isFavorite ? '取消收藏' : '收藏', active: photo.isFavorite },
+    { id: 'rating', icon: 'star', label: photo.rating > 0 ? `评分 ${'★'.repeat(photo.rating)}` : '评分' },
+    { id: 'hidden', icon: 'eye-off', label: photo.isHidden ? '取消隐藏' : '隐藏', active: photo.isHidden },
+    { id: 'pin', icon: 'pin', label: photo.isPinned ? '取消置顶' : '置顶', active: photo.isPinned },
+    { id: 'edit', icon: 'edit', label: '编辑' },
+    { id: 'compare', icon: 'compare', label: '对比' },
+    { id: 'exif', icon: 'exif', label: '编辑 EXIF' },
   ];
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View style={[styles.backdrop, { backgroundColor: tokens.scrim }]}>
         <View style={[styles.sheet, { backgroundColor: theme.colors.surface }]}>
           <View style={[styles.handle, { backgroundColor: theme.colors.outlineVariant }]} />
 
           {/* 照片信息头 */}
-          <View style={styles.photoHeader}>
+          <View style={[styles.photoHeader, { borderBottomColor: theme.colors.outlineVariant + '33' }]}>
             <View style={[styles.photoThumb, { backgroundColor: theme.colors.surfaceVariant }]}>
-              <Text style={styles.photoEmoji}>🖼️</Text>
+              <LineIcon name="image" size={20} color={theme.colors.onSurfaceVariant} />
             </View>
             <View style={styles.photoInfo}>
               <Text style={[styles.photoName, { color: theme.colors.onSurface }]} numberOfLines={1}>
@@ -143,7 +148,7 @@ export function PhotoActionSheet({ visible, photo, onClose, onEdit, onCompare, o
                   style={[styles.actionItem, { borderBottomColor: theme.colors.outlineVariant }]}
                   onPress={() => handleAction(action.id)}
                 >
-                  <Text style={styles.actionIcon}>{action.icon}</Text>
+                  <LineIcon name={action.icon} size={20} color={theme.colors.onSurface} style={styles.actionIcon} />
                   <Text
                     style={[
                       styles.actionLabel,
@@ -183,7 +188,6 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: '#00000066',
   },
   sheet: {
     borderTopLeftRadius: 24,
@@ -205,7 +209,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingBottom: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#ccc3',
   },
   photoThumb: {
     width: 48,
@@ -215,7 +218,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  photoEmoji: { fontSize: 20 },
   photoInfo: { flex: 1 },
   photoName: { fontSize: 15, fontWeight: '600' },
   photoMeta: { fontSize: 12, marginTop: 2 },
@@ -225,7 +227,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 0.5,
   },
-  actionIcon: { fontSize: 20, marginRight: 14 },
+  actionIcon: { marginRight: 14 },
   actionLabel: { fontSize: 15, fontWeight: '500' },
   ratingPanel: {
     paddingVertical: 12,

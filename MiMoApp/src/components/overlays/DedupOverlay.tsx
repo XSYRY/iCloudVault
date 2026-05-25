@@ -1,5 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMd3Theme } from '../../theme';
 import { useUiStore, usePhotoStore } from '../../store';
 import { findDuplicates } from '../../ai/dedup';
@@ -8,6 +10,16 @@ import { PhotoCard } from '../photo/PhotoCard';
 import { EmptyState } from '../shared/EmptyState';
 
 export function DedupOverlay() {
+  const insets = useSafeAreaInsets();
+  const isVisible = useUiStore((s) => s.isDedupOverlayVisible);
+
+  if (!isVisible) return null;
+
+  return <DedupOverlayContent />;
+}
+
+function DedupOverlayContent() {
+  const insets = useSafeAreaInsets();
   const theme = useMd3Theme();
   const isVisible = useUiStore((s) => s.isDedupOverlayVisible);
   const setVisible = useUiStore((s) => s.setDedupOverlayVisible);
@@ -66,7 +78,7 @@ export function DedupOverlay() {
     >
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         {/* 顶部栏 */}
-        <View style={[styles.header, { borderBottomColor: theme.colors.outlineVariant }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: theme.colors.outlineVariant }]}>
           <Pressable onPress={() => setVisible(false)}>
             <Text style={[styles.closeBtn, { color: theme.colors.primary }]}>关闭</Text>
           </Pressable>
@@ -81,14 +93,15 @@ export function DedupOverlay() {
         {/* 内容 */}
         {duplicates.length === 0 && !isScanning ? (
           <EmptyState
-            icon="🔍"
+            icon="scan"
             title={result ? '未发现重复' : '点击"开始扫描"检测重复照片'}
             subtitle="基于感知哈希 + 特征向量相似度"
           />
         ) : (
-          <FlatList
+          <FlashList
             data={duplicates}
             keyExtractor={(item, idx) => `dup-${idx}`}
+            estimatedItemSize={200}
             contentContainerStyle={styles.listContent}
             renderItem={({ item }) => (
               <View style={[styles.dupGroup, { backgroundColor: theme.colors.surfaceVariant }]}>
@@ -100,7 +113,7 @@ export function DedupOverlay() {
                     <PhotoCard
                       photo={item.original}
                       size={120}
-                      onPress={() => {}}
+                      onPress={() => setVisible(false)}
                     />
                     <Text style={[styles.dupLabel, { color: theme.colors.primary }]}>原图</Text>
                   </View>
@@ -109,7 +122,7 @@ export function DedupOverlay() {
                     <PhotoCard
                       photo={item.duplicate}
                       size={120}
-                      onPress={() => {}}
+                      onPress={() => setVisible(false)}
                     />
                     <Text style={[styles.dupLabel, { color: theme.colors.error }]}>重复</Text>
                   </View>
@@ -138,7 +151,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 56,
+
     paddingBottom: 12,
     borderBottomWidth: 0.5,
   },

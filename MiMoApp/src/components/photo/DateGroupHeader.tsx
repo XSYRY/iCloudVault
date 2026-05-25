@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useMd3Theme } from '../../theme';
 import { formatMonth } from '../../utils/date';
@@ -8,7 +8,7 @@ interface DateGroupHeaderProps {
   count: number;
 }
 
-export function DateGroupHeader({ month, count }: DateGroupHeaderProps) {
+export const DateGroupHeader = memo(function DateGroupHeader({ month, count }: DateGroupHeaderProps) {
   const theme = useMd3Theme();
 
   return (
@@ -17,7 +17,7 @@ export function DateGroupHeader({ month, count }: DateGroupHeaderProps) {
       <Text style={[styles.count, { color: theme.colors.onSurfaceVariant }]}>{count} 张</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -30,3 +30,4 @@ const styles = StyleSheet.create({
   month: { fontSize: 16, fontWeight: '700' },
   count: { fontSize: 13 },
 });
+

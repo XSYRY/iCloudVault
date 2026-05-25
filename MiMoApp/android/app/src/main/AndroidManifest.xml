@@ -1,6 +1,30 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 基础网络权限 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- Android 13+ 新的媒体权限（兼容Android 12） -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    
+    <!-- Android 12及以下的存储权限 -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    
+    <!-- 相机权限 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+    <!-- 生物识别权限 -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+    
+    <!-- 振动权限（用于触觉反馈） -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <application
       android:name=".MainApplication"
@@ -10,17 +34,22 @@
       android:allowBackup="false"
       android:theme="@style/AppTheme"
       android:usesCleartextTraffic="${usesCleartextTraffic}"
-      android:supportsRtl="true">
+      android:supportsRtl="true"
+      android:requestLegacyExternalStorage="false">
+      <meta-data
+        android:name="com.amap.api.v2.apikey"
+        android:value="e8690c45e871eb49f534adcf7e1b2dd7" />
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"
         android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
         android:launchMode="singleTask"
-        android:windowSoftInputMode="adjustResize"
-        android:exported="true">
+        android:windowSoftInputMode="adjustPan"
+        android:exported="true"
+        android:theme="@style/SplashTheme">
         <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
+          <action android:name="android.intent.action.MAIN" />
+          <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
     </application>

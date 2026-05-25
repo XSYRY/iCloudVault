@@ -1,10 +1,6 @@
 import { create } from 'zustand';
 import type { ViewMode } from '../types';
-
-// ============================================================
-// uiStore — 全局 UI 状态（Toast、模态、浮层、Sheet）
-// 任何组件都可以通过此 store 触发 UI 反馈
-// ============================================================
+import type { Story } from '../services/stories';
 
 export interface ToastMessage {
   id: string;
@@ -13,15 +9,23 @@ export interface ToastMessage {
   durationMs: number;
 }
 
+interface MapPreviewPin {
+  latitude: number;
+  longitude: number;
+}
+
+interface MapPreviewPinDropPoint {
+  x: number;
+  y: number;
+  requestId: number;
+}
+
 interface UiState {
-  // 当前视图 & 缩略图列数
   activeView: ViewMode;
   gridColumns: number;
 
-  // Toast 队列
   toasts: ToastMessage[];
 
-  // 模态/浮层 可见性
   isFabOpen: boolean;
   isSearchActive: boolean;
   isDrawerOpen: boolean;
@@ -30,11 +34,15 @@ interface UiState {
   isStatsModalVisible: boolean;
   isSettingsModalVisible: boolean;
   isAlbumPickerVisible: boolean;
+  isTabBarHidden: boolean;
+  mapOnlyWithMemos: boolean;
+  mapPreviewPin: MapPreviewPin | null;
+  mapPreviewPinDropPoint: MapPreviewPinDropPoint | null;
 
-  // 列表滚动位置（用于返回时恢复）
   gridScrollOffset: number;
 
-  // ---- Actions ----
+  storyCache: Map<string, Story>;
+
   setActiveView: (view: ViewMode) => void;
   setGridColumns: (cols: number) => void;
   showToast: (text: string, type?: ToastMessage['type'], durationMs?: number) => void;
@@ -47,12 +55,21 @@ interface UiState {
   setStatsModalVisible: (visible: boolean) => void;
   setSettingsModalVisible: (visible: boolean) => void;
   setAlbumPickerVisible: (visible: boolean) => void;
+  setTabBarHidden: (hidden: boolean) => void;
+  setMapOnlyWithMemos: (enabled: boolean) => void;
+  toggleMapOnlyWithMemos: () => void;
+  setMapPreviewPin: (pin: MapPreviewPin | null) => void;
+  requestMapPreviewPinDropPoint: (point: Omit<MapPreviewPinDropPoint, 'requestId'>) => void;
+  clearMapPreviewPinDropPoint: () => void;
   setGridScrollOffset: (offset: number) => void;
+  cacheStory: (story: Story) => void;
+  getStory: (id: string) => Story | null;
 }
 
 let toastId = 0;
+let mapPreviewPinRequestId = 0;
 
-export const useUiStore = create<UiState>((set) => ({
+export const useUiStore = create<UiState>((set, get) => ({
   activeView: 'grid',
   gridColumns: 3,
   toasts: [],
@@ -64,7 +81,12 @@ export const useUiStore = create<UiState>((set) => ({
   isStatsModalVisible: false,
   isSettingsModalVisible: false,
   isAlbumPickerVisible: false,
+  isTabBarHidden: false,
+  mapOnlyWithMemos: false,
+  mapPreviewPin: null,
+  mapPreviewPinDropPoint: null,
   gridScrollOffset: 0,
+  storyCache: new Map(),
 
   setActiveView: (view) => set({ activeView: view }),
   setGridColumns: (cols) => set({ gridColumns: cols }),
@@ -87,5 +109,25 @@ export const useUiStore = create<UiState>((set) => ({
   setStatsModalVisible: (visible) => set({ isStatsModalVisible: visible }),
   setSettingsModalVisible: (visible) => set({ isSettingsModalVisible: visible }),
   setAlbumPickerVisible: (visible) => set({ isAlbumPickerVisible: visible }),
+  setTabBarHidden: (hidden) => set({ isTabBarHidden: hidden }),
+  setMapOnlyWithMemos: (enabled) => set({ mapOnlyWithMemos: enabled }),
+  toggleMapOnlyWithMemos: () =>
+    set((s) => ({ mapOnlyWithMemos: !s.mapOnlyWithMemos })),
+  setMapPreviewPin: (pin) => set({ mapPreviewPin: pin }),
+  requestMapPreviewPinDropPoint: (point) =>
+    set({
+      mapPreviewPinDropPoint: {
+        ...point,
+        requestId: ++mapPreviewPinRequestId,
+      },
+    }),
+  clearMapPreviewPinDropPoint: () => set({ mapPreviewPinDropPoint: null }),
   setGridScrollOffset: (offset) => set({ gridScrollOffset: offset }),
+
+  cacheStory: (story) => {
+    const cache = new Map(get().storyCache);
+    cache.set(story.id, story);
+    set({ storyCache: cache });
+  },
+  getStory: (id) => get().storyCache.get(id) ?? null,
 }));

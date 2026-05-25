@@ -1,13 +1,15 @@
-// ============================================================
-// EXIF 元数据解析
-// 后期用 react-native-exif 或 expo-media-library
-// ============================================================
-
 import type { ExifData } from '../types';
+import { ExifParserAdapter } from '../services/photoImport/ExifParserAdapter';
+import type { IExifParser } from '../services/photoImport/types';
 
-export function parseExif(_uri: string): Promise<ExifData> {
-  // 后期实现
-  return Promise.resolve({ width: 0, height: 0 });
+let _parser: IExifParser = new ExifParserAdapter();
+
+export function setExifParser(parser: IExifParser): void {
+  _parser = parser;
+}
+
+export function parseExif(uri: string, rawExif?: Record<string, unknown>): Promise<ExifData> {
+  return _parser.parse(uri, rawExif);
 }
 
 export function formatExifValue(exif: ExifData, key: keyof ExifData): string {
